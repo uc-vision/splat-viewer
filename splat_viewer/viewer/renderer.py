@@ -1,4 +1,4 @@
-from typing import List
+from dataclasses import dataclass, replace
 import cv2
 
 import numpy as np
@@ -8,14 +8,12 @@ from splat_viewer.camera.fov import FOVCamera
 from splat_viewer.gaussians.gaussian_renderer import GaussianRenderer
 
 from splat_viewer.gaussians.workspace import Workspace
-from splat_viewer.gaussians.gaussians import Gaussians
+from splat_viewer.gaussians import Gaussians, DepthRendering
 from splat_viewer.viewer.scene_camera import to_pyrender_camera
 
-
-from splat_viewer.gaussians.taichi_renderer import RenderOutputs
     
 from .mesh import make_camera_markers
-from .settings import Instance, Settings, ViewMode
+from .settings import Settings, ViewMode
 
 
 def get_cv_colormap(cmap):
@@ -69,16 +67,37 @@ class PyrenderScene:
 
     return image, depth
 
+@dataclass(frozen=True)
+class RenderState:
+  as_points : bool = False
+  cropped : bool = False
+
+  def update_setting(self, settings:Settings):
+    return replace(self,
+      as_points = settings.view_mode == ViewMode.Points,
+      cropped = settings.show.cropped)
+
+
+  def updated(self, gaussians:Gaussians) -> Gaussians:
+
+    if self.as_points:
+      gaussians = gaussians.with_fixed_scale(0.001)
+
+    if self.cropped and gaussians.foreground is not None:
+      gaussians = gaussians[gaussians.foreground.squeeze()]
+
+    return gaussians
 
 class Renderer:
   def __init__(self, workspace:Workspace, gaussians:Gaussians):
     self.workspace = workspace
 
     self.gaussians = gaussians
+    self.packed_gaussians = None
+    self.render_state = RenderState()
+
     self.gaussian_renderer  = GaussianRenderer()
     # self.gaussian_renderer  =  TaichiRenderer()
-
-    print(self.gaussian_renderer)
 
     self.pyrender_scene = PyrenderScene(workspace)
 
@@ -87,30 +106,20 @@ class Renderer:
                                       ).squeeze(0).to(device=self.gaussians.device)
 
 
-  def render_gaussians(self, camera, settings:Settings, highlights:List[Instance]) -> RenderOutputs:
-    gaussians:Gaussians = self.gaussians
+  def render_gaussians(self, camera, settings:Settings) -> DepthRendering:
+    render_state = self.render_state.update_setting(settings)
 
-    if len(highlights) > 0:
-      colors = gaussians.colors.clone()
-
-      for instance in highlights:
-        color = torch.tensor(instance.color, dtype=torch.float32, device=colors.device)
-        colors[instance.ids] = color
+    if self.packed_gaussians is None or self.render_state != render_state:
+      self.packed_gaussians = self.gaussian_renderer.pack_inputs(
+        render_state.updated(self.gaussians))
       
-      gaussians = gaussians.with_colors(colors)
-
-    if settings.view_mode == ViewMode.Points:
-      gaussians = gaussians.with_fixed_scale(0.001)
-
-    if settings.show.cropped and self.gaussians.has_labels:
-      gaussians = gaussians[(gaussians.labels > 0).squeeze()]
+      self.render_state = render_state
 
     self.gaussian_renderer.update_settings(
         alpha_multiplier = 1/settings.alpha_depth,
         tile_size = settings.tile_size)
     
-    return self.gaussian_renderer.render_gaussians(
-      gaussians.contiguous(), camera)
+    return self.gaussian_renderer.render(self.packed_gaussians, camera)
 
 
   def unproject_mask(self, camera:FOVCamera, 
@@ -122,7 +131,7 @@ class Renderer:
   def colormap_torch(self, depth, near=0.1):
     min_depth = torch.clamp(depth, min=near).min()
 
-    inv_depth =  (min_depth / depth)
+    inv_depth =  (min_depth / depth).clamp(0, 1)
     inv_depth = (255 * inv_depth).to(torch.int)
 
     return (self.color_map[inv_depth])
@@ -135,13 +144,12 @@ class Renderer:
     return cv2.applyColorMap(inv_depth, cv2.COLORMAP_TURBO)
 
   
-  def render(self, camera, settings:Settings, highlights=[]):
+  def render(self, camera, settings:Settings):
     show = settings.show
 
     with torch.inference_mode():      
-      self.rendering = self.render_gaussians(camera, settings, highlights=highlights)   
+      self.rendering = self.render_gaussians(camera, settings)   
     
-
     min_depth = self.workspace.camera_extent / 50.
 
     if settings.view_mode == ViewMode.Depth:

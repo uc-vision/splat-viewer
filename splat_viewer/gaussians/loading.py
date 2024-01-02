@@ -97,11 +97,11 @@ def from_pcd(pcd:o3d.t.geometry.PointCloud) -> Gaussians:
 
   
   return Gaussians(
-    positions = positions, 
+    position = positions, 
     rotation = rotation,
     alpha_logit = alpha_logit,
     log_scaling = log_scaling,
-    sh_features = sh_features,
+    sh_feature = sh_features,
 
     foreground = foreground,
     label = label,

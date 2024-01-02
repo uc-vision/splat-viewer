@@ -6,8 +6,8 @@ from PySide6.QtCore import QEvent
 from beartype import beartype
 import numpy as np
 import torch
+from splat_viewer.gaussians.gaussian_renderer import DepthRendering
 
-from splat_viewer.gaussians.taichi_renderer import RenderOutputs
 from splat_viewer.viewer.settings import Settings
 
 
@@ -188,7 +188,7 @@ class Interaction():
     return torch.from_numpy(a).to(device=self.settings.device)
 
   @property
-  def rendering(self) -> RenderOutputs:
+  def rendering(self) -> DepthRendering:
     return self.scene_widget.renderer.rendering
   
 

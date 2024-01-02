@@ -1,7 +1,9 @@
+from dataclasses import replace
 import math
 from typing import Optional
-from tensorclass import tensorclass
+from tensordict import tensorclass
 import torch
+
 
 def check_sh_degree(sh_features):
   assert len(sh_features.shape) == 3, f"SH features must have 3 dimensions, got {sh_features.shape}"
@@ -12,7 +14,17 @@ def check_sh_degree(sh_features):
   assert n * n == n_sh, f"SH feature count must be square, got {n_sh} ({sh_features.shape})"
   return (n - 1)
 
+def num_sh_features(deg):
+  return (deg + 1) ** 2 
 
+
+sh0 = 0.282094791773878
+
+def rgb_to_sh(rgb):
+    return (rgb - 0.5) / sh0
+
+def sh_to_rgb(sh):
+    return sh * sh0 + 0.5
 
 @tensorclass
 class Gaussians():
@@ -36,18 +48,51 @@ class Gaussians():
     assert self.foreground is None or self.foreground.shape[1] == 1, f"Expected shape (N, 1), got {self.foreground.shape}"
     assert self.label is None or self.label.shape[1] == 1, f"Expected shape (N, 1), got {self.label.shape}"
 
+  def __repr__(self):
+    return f"Gaussians with {self.batch_shape[0]} points, sh_degree={self.sh_degree}"
+
+  def __str__(self):
+    return repr(self)
     
   def packed(self):
     return torch.cat([self.position, self.log_scaling, self.rotation, self.alpha_logit], dim=-1)
 
-  @property
   def scale(self):
     return torch.exp(self.log_scaling)
 
-  @property
   def alpha(self):
     return torch.sigmoid(self.alpha_logit)
   
-  @property
   def sh_degree(self):
     return check_sh_degree(self.sh_feature)
+  
+  def with_fixed_scale(self, scale:float):
+    return replace(self, 
+            log_scaling=torch.full_like(self.log_scaling, math.log(scale)),
+            batch_size=self.batch_size)
+  
+  def get_colors(self):
+    return sh_to_rgb(self.sh_feature[:, :, 0])
+  
+
+  def with_colors(self, colors):
+    sh_feature = self.sh_feature.clone()
+    sh_feature[:, :, 0] = rgb_to_sh(colors)
+
+    return replace(self, 
+            sh_feature=sh_feature,
+            batch_size=self.batch_size)
+  
+  def with_sh_degree(self, sh_degree:int):
+    assert sh_degree >= 0
+
+    if sh_degree <= self.sh_degree:
+      return replace(self, sh_features = self.sh_features[:, :, :num_sh_features(sh_degree)])
+    else:
+      num_extra = num_sh_features(sh_degree) - num_sh_features(self.sh_degree)
+      extra_features = torch.zeros((self.batch_shape[0], 
+              3, num_extra), device=self.device)
+      
+      return replace(self, sh_features = torch.cat(
+        [self.sh_features, extra_features], dim=2), 
+        batch_size=self.batch_size)

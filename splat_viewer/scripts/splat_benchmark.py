@@ -7,12 +7,13 @@ import time
 
 import numpy as np
 import torch
-from splat_viewer.camera.fov import FOVCamera
 from tqdm import tqdm
-from splat_viewer.gaussians.taichi_renderer import TaichiRenderer
-from splat_viewer.gaussians.gaussian_renderer import GaussianRenderer
 
+
+from splat_viewer.camera.fov import FOVCamera
+from splat_viewer.gaussians.gaussian_renderer import GaussianRenderer, PackedGaussians
 from splat_viewer.gaussians.workspace import load_workspace
+
 import taichi as ti
 from torch.profiler import profile, record_function, ProfilerActivity
 
@@ -27,22 +28,22 @@ def pad_to_tile(camera:FOVCamera, m:int):
   return camera.pad_to(np.array(round_size))
 
 
-def bench_forward(inputs, renderer, cameras):
+def bench_forward(inputs:PackedGaussians, renderer:GaussianRenderer, cameras):
     start_time = time.time()
     with torch.no_grad():
       for camera in tqdm(cameras):
-        renderer.render_inputs(inputs, camera)
+        renderer.render(inputs, camera)
     torch.cuda.synchronize()
     ti.sync()
     return time.time() - start_time
 
-def bench_backward(inputs, renderer, cameras):
+def bench_backward(inputs:PackedGaussians, renderer:GaussianRenderer, cameras):
     start_time = time.time()
 
     for camera in tqdm(cameras):
-      inputs = [x.requires_grad_(True) for x in inputs]
+      inputs.requires_grad_(True)
 
-      output = renderer.render_inputs(inputs, camera)
+      output = renderer.render(inputs, camera)
       loss = output.image.sum()
       loss.backward()
 
@@ -58,13 +59,13 @@ def main():
   parser.add_argument("--device", type=str, default="cuda:0")
   parser.add_argument("--model", type=str)
   parser.add_argument("--profile", action="store_true")
-  parser.add_argument("--profile_torch", action="store_true")
   
   parser.add_argument("--debug", action="store_true")
-  parser.add_argument("--n", type=int, default=1000)
+  parser.add_argument("-n", type=int, default=500)
   parser.add_argument("--tile_size", type=int, default=16)
   parser.add_argument("--backward", action="store_true")
   parser.add_argument("--taichi", action="store_true")
+  parser.add_argument("--sh_degree", type=int, default=None)
 
 
   args = parser.parse_args()
@@ -78,9 +79,10 @@ def main():
       args.model = workspace.latest_iteration()
     
   gaussians = workspace.load_model(args.model).to(args.device)
+  if args.sh_degree is not None:
+    gaussians = gaussians.with_sh_degree(args.sh_degree)
 
-
-  renderer = TaichiRenderer() if args.taichi else GaussianRenderer() 
+  renderer =  GaussianRenderer() 
   renderer.update_settings(tile_size=args.tile_size)
 
   cameras = workspace.cameras # [pad_to_tile(camera, args.tile_size) for camera in workspace.cameras]
@@ -88,25 +90,22 @@ def main():
   def n_cameras(n):
     return list(itertools.islice(itertools.cycle(cameras), n))
 
-  print(f"Benchmarking {args.model_path} with {gaussians.batch_shape[0]} points")
+  print(f"Benchmarking {args.model_path} with {gaussians.batch_size[0]} points")
 
   image_sizes = set([tuple(camera.image_size) for camera in workspace.cameras])
   print(f"Cameras: {len(workspace.cameras)}, Image sizes: {image_sizes}")
 
 
-  inputs = renderer.make_inputs(gaussians)
+  inputs = renderer.pack_inputs(gaussians)
   bench_renders = bench_backward if args.backward else bench_forward
 
   print(f"Warmup @ {args.n // 10} cameras")
   bench_renders(inputs, renderer, n_cameras(args.n // 10))
 
-  if args.profile:
-    print("Profiling...")
-    ti.profiler.clear_kernel_profiler_info()
 
   print(f"Benchmark @ {args.n} cameras:")
 
-  if args.profile_torch:
+  if args.profile:
     with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
       with record_function("model_inference"):
         ellapsed = bench_renders(inputs, renderer, n_cameras(args.n))
@@ -116,9 +115,6 @@ def main():
   else:
     ellapsed = bench_renders(inputs, renderer, n_cameras(args.n))
   print(f"{args.n} images in {ellapsed:.2f}s at {args.n / ellapsed:.2f} images/s")
-
-  if args.profile:
-    ti.profiler.print_kernel_profiler_info("count")
 
     
 

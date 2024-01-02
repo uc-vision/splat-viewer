@@ -15,7 +15,7 @@ import torch
 from splat_viewer.camera.fov import FOVCamera
 
 from splat_viewer.gaussians.workspace import Workspace
-from splat_viewer.gaussians.gaussians import Gaussians
+from splat_viewer.gaussians import Gaussians
 from splat_viewer.viewer.interactions.animate import  animate_to_loop
 from splat_viewer.viewer.interaction import Interaction
 from splat_viewer.viewer.renderer import Renderer
@@ -53,7 +53,6 @@ class SceneWidget(QtWidgets.QWidget):
     self.timer.timeout.connect(self.update)
     self.timer.start(1000 / Settings.update_rate)
 
-    self.highlight = {}
 
 
   def update_setting(self, **kwargs):
@@ -88,9 +87,6 @@ class SceneWidget(QtWidgets.QWidget):
 
     return []
 
-  def add_highlight(self, k:str, instance:Instance):
-    self.highlight[k] = instance
-    self.dirty = True
 
 
   def set_camera_index(self, index:int):
@@ -301,16 +297,11 @@ class SceneWidget(QtWidgets.QWidget):
     return self.camera.resized(round_size)
   
 
-  def set_label(self, label:int, ids:torch.Tensor):
-    self.highlight[label] = ids
-    self.dirty = True
-
   def render(self):
     camera = self.render_camera()
 
     self.view_image = np.ascontiguousarray(
-      self.renderer.render(camera, self.settings, 
-              highlights=list(self.highlight.values())))
+      self.renderer.render(camera, self.settings))
     
     self.dirty = False
     return self.view_image

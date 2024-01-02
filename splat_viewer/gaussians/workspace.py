@@ -10,7 +10,7 @@ import numpy as np
 from splat_viewer.camera.fov import FOVCamera, load_camera_json
 
 from .loading import read_gaussians
-from taichi_splatting.data_types import Gaussians
+from splat_viewer.gaussians import Gaussians
 
 import open3d as o3d 
 

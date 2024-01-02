@@ -5,9 +5,9 @@ from PySide6 import  QtWidgets
 from PySide6.QtWidgets import QApplication
 
 from splat_viewer.gaussians.workspace import Workspace, load_workspace
-from splat_viewer.gaussians.gaussians import Gaussians
+from splat_viewer.gaussians import Gaussians
 
-from splat_viewer.scene_widget import SceneWidget, Settings
+from splat_viewer.viewer.scene_widget import SceneWidget, Settings
 
 import signal
 import taichi as ti
@@ -16,9 +16,9 @@ import torch
 
 def show_workspace(workspace:Workspace, gaussians:Gaussians = None):
   import taichi as ti
-  ti.init(ti.gpu, offline_cache=False, device_memory_GB=0.1)
+  ti.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
 
-  from splat_viewer.viewer.main import sigint_handler
+  from splat_viewer.viewer.viewer import sigint_handler
   signal.signal(signal.SIGINT, sigint_handler)
 
   app = QtWidgets.QApplication(["viewer"])
