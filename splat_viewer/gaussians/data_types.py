@@ -86,13 +86,15 @@ class Gaussians():
   def with_sh_degree(self, sh_degree:int):
     assert sh_degree >= 0
 
-    if sh_degree <= self.sh_degree:
-      return replace(self, sh_features = self.sh_features[:, :, :num_sh_features(sh_degree)])
+    if sh_degree <= self.sh_degree():
+      return replace(self, 
+          sh_feature = self.sh_feature[:, :, :num_sh_features(sh_degree)],
+          batch_size=self.batch_size)
     else:
       num_extra = num_sh_features(sh_degree) - num_sh_features(self.sh_degree)
       extra_features = torch.zeros((self.batch_shape[0], 
               3, num_extra), device=self.device)
       
-      return replace(self, sh_features = torch.cat(
-        [self.sh_features, extra_features], dim=2), 
+      return replace(self, sh_feature = torch.cat(
+        [self.sh_feature, extra_features], dim=2), 
         batch_size=self.batch_size)
