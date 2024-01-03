@@ -12,14 +12,17 @@ maintainers = [
 
 dependencies = [
   "beartype", 
-#  "taichi", 
-  "taichi-splatting",
+  "taichi-nightly", 
+  "taichi-splatting >= 0.2.0",
   "tqdm", 
   "tensordict",
   "open3d >= 0.16",
   "pyside6"
 
 ]
+
+[options]
+dependency_links = ["https://pypi.taichi.graphics/simple/"]
 
 [project.urls] 
 "Homepage" = "https://github.com/uc-vision/splat-viewer"
