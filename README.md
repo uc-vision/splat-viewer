@@ -25,33 +25,33 @@ options:
 
 
 ###  Switch View mode 
-  1: normal rendering
-  2: render gaussian centers as points
-  3: render depth map
+* 1: normal rendering
+* 2: render gaussian centers as points
+* 3: render depth map
 
 ### Show/hide
-0 : cropped foreground
-9 : initial points
-8 : camera markers
+* 0 : cropped foreground
+* 9 : initial points
+* 8 : camera markers
     
 ### Misc
- PrntSc: save high-res snapshot into workspace directory
- Shift-return: toggle fullscreen
+ * prntsc: save high-res snapshot into workspace directory
+ * shift return: toggle fullscreen
  
 ### Camera 
- '[' : Prev camera
- ']' : Next camera
+ * '[' : Prev camera
+ * ']' : Next camera
 
- '=' : zoom in
- '-' : zoom out
+ * '=' : zoom in
+ * '-' : zoom out
 
-  w/s a/d q/e : forward/backward left/right up/down
-  Keypad_Plus/Minus: navigate faster/slower
+ * w/s a/d q/e : forward/backward left/right up/down
+ * keypad plus/minus: navigate faster/slower
 
 
 ### Animation
- Space: add current viewpoint to animaiton sequence
- Control-space: save current animation sequence to workspace folder
+ * space: add current viewpoint to animaiton sequence
+ control-space: save current animation sequence to workspace folder
  Return: animate current sequence
 
  Shift Plus/Minus: animation speed faster/slower
