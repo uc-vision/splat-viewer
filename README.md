@@ -53,11 +53,7 @@ options:
  * space: add current viewpoint to animaiton sequence
  * control-space: save current animation sequence to workspace folder
  * return: animate current sequence
-
  * shift plus/minus: animation speed faster/slower
-
- 
-    
 
 
 # splat-benchmark

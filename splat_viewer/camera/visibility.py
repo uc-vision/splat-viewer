@@ -1,4 +1,3 @@
-from dataclasses import replace
 
 from typing import List
 from beartype import beartype
@@ -7,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 
 import torch
-from splat_viewer.camera.fov import FOVCamera
+from .fov import FOVCamera
 
 
 def make_homog(points):

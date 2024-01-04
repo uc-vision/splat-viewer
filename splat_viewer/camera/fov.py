@@ -1,5 +1,4 @@
 from dataclasses import dataclass, replace
-import math
 from numbers import Number
 
 from camera_geometry import Camera
@@ -206,10 +205,8 @@ class FOVCamera:
       [0, 0, -1]
     ])
 
-    rotation = camera.rotation  @ flip_yz 
-    m = join_rt(rotation, camera.position)
-  
-    join_rt(self.rotation, self.position)
+    rotation = self.rotation  @ flip_yz 
+    return join_rt(rotation, self.position)
 
   @property
   def ndc_t_world(self):
