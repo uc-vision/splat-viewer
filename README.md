@@ -51,10 +51,10 @@ options:
 
 ### Animation
  * space: add current viewpoint to animaiton sequence
- control-space: save current animation sequence to workspace folder
- Return: animate current sequence
+ * control-space: save current animation sequence to workspace folder
+ * return: animate current sequence
 
- Shift Plus/Minus: animation speed faster/slower
+ * shift plus/minus: animation speed faster/slower
 
  
     
