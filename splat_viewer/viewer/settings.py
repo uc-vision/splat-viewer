@@ -2,13 +2,12 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Tuple
 
-import torch
 
 class ViewMode(Enum):
   Normal = 0
   Depth = 1
   Points = 2
-  Hidden = 4
+  Hidden = 3
 
 @dataclass 
 class Show:
@@ -17,10 +16,6 @@ class Show:
   cropped : bool = False
 
 
-@dataclass
-class Instance:
-  ids : torch.Tensor
-  color : Tuple[float, float, float]
 
 
 @dataclass(frozen=True)

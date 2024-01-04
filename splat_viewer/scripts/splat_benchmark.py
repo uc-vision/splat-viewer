@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 
 from splat_viewer.camera.fov import FOVCamera
+from splat_viewer.gaussians.data_types import Gaussians
 from splat_viewer.gaussians.gaussian_renderer import GaussianRenderer, PackedGaussians
 from splat_viewer.gaussians.workspace import load_workspace
 
@@ -55,18 +56,17 @@ def main():
 
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("model_path", type=Path)
-  parser.add_argument("--device", type=str, default="cuda:0")
-  parser.add_argument("--model", type=str)
-  parser.add_argument("--profile", action="store_true")
+  parser.add_argument("model_path", type=Path, help="workspace folder containing cameras.json, input.ply and point_cloud folder with .ply models")
+  parser.add_argument("--device", type=str, default="cuda:0", help="torch device to use")
+  parser.add_argument("--model", type=str, default=None, help="model iteration to load from point_clouds folder")
+  parser.add_argument("--profile", action="store_true", help="enable profiling")
   
-  parser.add_argument("--debug", action="store_true")
-  parser.add_argument("-n", type=int, default=500)
-  parser.add_argument("--tile_size", type=int, default=16)
-  parser.add_argument("--backward", action="store_true")
-  parser.add_argument("--taichi", action="store_true")
-  parser.add_argument("--sh_degree", type=int, default=None)
-
+  parser.add_argument("--debug", action="store_true", help="enable taichi kernels in debug mode")
+  parser.add_argument("-n", type=int, default=500, help="number of iterations to render")
+  parser.add_argument("--tile_size", type=int, default=16, help="tile size for rasterizer")
+  parser.add_argument("--backward", action="store_true", help="benchmark backward pass")
+  parser.add_argument("--sh_degree", type=int, default=None, help="modify spherical harmonics degree")
+  parser.add_argument("--no_sort", action="store_true", help="disable sorting by scale (sorting makes tilemapping faster)")
 
   args = parser.parse_args()
 
@@ -78,9 +78,14 @@ def main():
   if args.model is None:
       args.model = workspace.latest_iteration()
     
-  gaussians = workspace.load_model(args.model).to(args.device)
+  gaussians:Gaussians = workspace.load_model(args.model).to(args.device)
   if args.sh_degree is not None:
     gaussians = gaussians.with_sh_degree(args.sh_degree)
+
+  # sorting by scale makes the tile mapping algorithm more efficient
+  if not args.no_sort:
+    gaussians = gaussians.sorted()
+
 
   renderer =  GaussianRenderer() 
   renderer.update_settings(tile_size=args.tile_size)
@@ -110,7 +115,7 @@ def main():
       with record_function("model_inference"):
         ellapsed = bench_renders(inputs, renderer, n_cameras(args.n))
     result = prof.key_averages().table(sort_by="self_cuda_time_total", 
-                                       row_limit=15, max_name_column_width=45)
+                                       row_limit=25, max_name_column_width=70)
     print(result)
   else:
     ellapsed = bench_renders(inputs, renderer, n_cameras(args.n))

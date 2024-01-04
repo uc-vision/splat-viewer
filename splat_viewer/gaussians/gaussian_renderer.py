@@ -82,5 +82,7 @@ class GaussianRenderer:
       to_camera_params(camera, device),
       config)
     
+    depth[depth == 0] = torch.inf
+
     return DepthRendering(image.contiguous(), depth, camera) 
 

@@ -23,7 +23,7 @@ from splat_viewer.viewer.renderer import Renderer
     
 from .interactions.fly_control import FlyControl
 from .scene_camera import SceneCamera
-from .settings import Instance, Settings, ViewMode
+from .settings import Settings, ViewMode
 
 
 
@@ -139,7 +139,6 @@ class SceneWidget(QtWidgets.QWidget):
       Qt.Key_1 : ViewMode.Normal,
       Qt.Key_2 : ViewMode.Points,
       Qt.Key_3 : ViewMode.Depth,
-      Qt.Key_4 : ViewMode.Hidden
 
     }
 

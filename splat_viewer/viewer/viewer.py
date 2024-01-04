@@ -38,10 +38,10 @@ def show_workspace(workspace:Workspace, gaussians:Gaussians = None):
 
 def process_cl_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('model_path')  # positional argument
-    parser.add_argument('--model', default=None)  # positional argument
-    parser.add_argument('--device', default='cuda:0')
-    parser.add_argument('--debug', action='store_true')
+    parser.add_argument('model_path', help="workspace folder containing cameras.json, input.ply and point_cloud folder with .ply models")  # positional argument
+    parser.add_argument('--model', default=None, help="load model from point_clouds folder, default is latest iteration") 
+    parser.add_argument('--device', default='cuda:0', help="torch device to use")
+    parser.add_argument('--debug', action='store_true', help="enable taichi kernels in debug mode")
     
 
     parsed_args, unparsed_args = parser.parse_known_args()

@@ -116,7 +116,6 @@ class Renderer:
       self.render_state = render_state
 
     self.gaussian_renderer.update_settings(
-        alpha_multiplier = 1/settings.alpha_depth,
         tile_size = settings.tile_size)
     
     return self.gaussian_renderer.render(self.packed_gaussians, camera)

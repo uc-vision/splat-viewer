@@ -79,3 +79,11 @@ class Gaussians():
       return replace(self, sh_feature = torch.cat(
         [self.sh_feature, extra_features], dim=2), 
         batch_size=self.batch_size)
+    
+  def sorted(self):
+    max_axis = torch.max(self.log_scaling, dim=1).values
+    indices = torch.argsort(max_axis, descending=False)
+
+    return self[indices]
+    
+

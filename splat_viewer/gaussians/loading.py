@@ -74,7 +74,7 @@ def from_pcd(pcd:o3d.t.geometry.PointCloud) -> Gaussians:
 
   assert deg * deg == n_sh, f"SH feature count must be (3x) square, got {len(sh_attrs)}"
   log_scaling = get_keys([f'scale_{k}' for k in range(3)])
-  log_scaling = log_scaling.clamp_min(-10)
+  log_scaling = log_scaling.clamp_min(-8)
 
 
   sh_dc = get_keys([f'f_dc_{k}' for k in range(3)]).view(positions.shape[0], 3, 1)
@@ -94,8 +94,8 @@ def from_pcd(pcd:o3d.t.geometry.PointCloud) -> Gaussians:
     if 'foreground' in pcd.point else None)
   
   label = get_keys(['label']) if 'label' in pcd.point else None
-
   
+
   return Gaussians(
     position = positions, 
     rotation = rotation,
