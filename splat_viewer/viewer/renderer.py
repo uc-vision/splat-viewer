@@ -5,10 +5,10 @@ import numpy as np
 import pyrender
 import torch
 from splat_viewer.camera.fov import FOVCamera
-from splat_viewer.gaussians.gaussian_renderer import GaussianRenderer
+from splat_viewer.renderer.taichi_splatting import GaussianRenderer
 
 from splat_viewer.gaussians.workspace import Workspace
-from splat_viewer.gaussians import Gaussians, DepthRendering
+from splat_viewer.gaussians import Gaussians, Rendering
 from splat_viewer.viewer.scene_camera import to_pyrender_camera
 
     
@@ -89,7 +89,7 @@ class RenderState:
     return gaussians
 
 class Renderer:
-  def __init__(self, workspace:Workspace, gaussians:Gaussians):
+  def __init__(self, workspace:Workspace, gaussians:Gaussians, gaussian_renderer):
     self.workspace = workspace
 
     self.gaussians = gaussians
@@ -106,7 +106,7 @@ class Renderer:
                                       ).squeeze(0).to(device=self.gaussians.device)
 
 
-  def render_gaussians(self, camera, settings:Settings) -> DepthRendering:
+  def render_gaussians(self, camera, settings:Settings) -> Rendering:
     render_state = self.render_state.update_setting(settings)
 
     if self.packed_gaussians is None or self.render_state != render_state:
@@ -114,10 +114,6 @@ class Renderer:
         render_state.updated(self.gaussians))
       
       self.render_state = render_state
-
-    self.gaussian_renderer.update_settings(
-        tile_size = settings.tile_size)
-    
     return self.gaussian_renderer.render(self.packed_gaussians, camera)
 
 
@@ -128,6 +124,9 @@ class Renderer:
 
 
   def colormap_torch(self, depth, near=0.1):
+    depth = depth.clone()
+    depth[depth == 0] = torch.inf
+
     min_depth = torch.clamp(depth, min=near).min()
 
     inv_depth =  (min_depth / depth).clamp(0, 1)
@@ -142,7 +141,6 @@ class Renderer:
     inv_depth = (255 * inv_depth).astype(np.uint8)
     return cv2.applyColorMap(inv_depth, cv2.COLORMAP_TURBO)
 
-  
   def render(self, camera, settings:Settings):
     show = settings.show
 

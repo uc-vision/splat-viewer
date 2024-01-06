@@ -43,6 +43,8 @@ def process_cl_args():
     parser.add_argument('--device', default='cuda:0', help="torch device to use")
     parser.add_argument('--debug', action='store_true', help="enable taichi kernels in debug mode")
     
+    parser.add_argument('--taichi', action='store_true', help="render with the taichi_3d_gaussian_splatting renderer")
+
 
     parsed_args, unparsed_args = parser.parse_known_args()
     return parsed_args, unparsed_args

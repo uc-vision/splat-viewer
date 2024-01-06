@@ -3,10 +3,11 @@ from dataclasses import dataclass, replace
 from beartype import beartype
 import torch
 from splat_viewer.camera.fov import FOVCamera
-from .data_types import Gaussians
 
 from taichi_splatting import renderer
 from taichi_splatting.data_types import CameraParams
+
+from splat_viewer.gaussians.data_types import Gaussians, Rendering
 
 
 def to_camera_params(camera:FOVCamera, device=torch.device("cuda:0")):
@@ -21,18 +22,6 @@ def to_camera_params(camera:FOVCamera, device=torch.device("cuda:0")):
   )
 
   return params.to(device=device, dtype=torch.float32)
-
-
-@dataclass
-class DepthRendering:
-  image : torch.Tensor
-  depth : torch.Tensor
-  camera : FOVCamera
-
-  @property
-  def image_size(self):
-    y, x = self.image.shape[1:]
-    return x, y
     
 
 @dataclass
@@ -43,6 +32,7 @@ class PackedGaussians:
   def requires_grad_(self, requires_grad):
     self.gaussians.requires_grad_(requires_grad)
     self.features.requires_grad_(requires_grad)
+    return self
 
 class GaussianRenderer:
   @dataclass 
@@ -54,7 +44,7 @@ class GaussianRenderer:
     self.config = GaussianRenderer.Config(**kwargs)
 
   @beartype
-  def pack_inputs(self, gaussians:Gaussians):
+  def pack_inputs(self, gaussians:Gaussians, requires_grad=False):
       packed = torch.cat(
         [gaussians.position, 
          gaussians.log_scaling, 
@@ -64,25 +54,25 @@ class GaussianRenderer:
       
       return PackedGaussians(
         gaussians=packed, 
-        features=gaussians.sh_feature)
+        features=gaussians.sh_feature).requires_grad_(requires_grad)
 
   
   def update_settings(self, **kwargs):
     self.config = replace(self.config, **kwargs)
 
   @beartype
-  def render(self, inputs:PackedGaussians, camera:FOVCamera):
+  def render(self, inputs:PackedGaussians, camera:FOVCamera, render_depth:bool = True):
     device = inputs.gaussians.device
 
     config = renderer.RasterConfig(
       tile_size=self.config.tile_size,
     )
-    image, depth = renderer.render_sh_gaussians(
+    rendering = renderer.render_gaussians(
       inputs.gaussians, inputs.features,
       to_camera_params(camera, device),
-      config)
+      config, 
+      use_sh=True, render_depth=render_depth)
     
-    depth[depth == 0] = torch.inf
-
-    return DepthRendering(image.contiguous(), depth, camera) 
-
+    return Rendering(rendering.image, 
+                            rendering.depth, rendering.depth_var, camera)
+    

@@ -1,55 +1,46 @@
 
 import argparse
 import itertools
-import math
 from pathlib import Path
 import time
 
-import numpy as np
 import torch
 from tqdm import tqdm
 
 
-from splat_viewer.camera.fov import FOVCamera
 from splat_viewer.gaussians.data_types import Gaussians
-from splat_viewer.gaussians.gaussian_renderer import GaussianRenderer, PackedGaussians
+from splat_viewer.renderer.taichi_splatting import GaussianRenderer
 from splat_viewer.gaussians.workspace import load_workspace
 
 import taichi as ti
 from torch.profiler import profile, record_function, ProfilerActivity
 
 
-def pad_to_tile(camera:FOVCamera, m:int):
-  def next_mult(x):
-      return int(math.ceil(x / m) * m)
-      
-  w, h = camera.image_size
-
-  round_size = (next_mult(w), next_mult(h))
-  return camera.pad_to(np.array(round_size))
 
 
-def bench_forward(inputs:PackedGaussians, renderer:GaussianRenderer, cameras):
+def bench_forward(gaussians, renderer, cameras, **kwargs):
+    inputs = renderer.pack_inputs(gaussians)
+    torch.cuda.synchronize()
+
     start_time = time.time()
     with torch.no_grad():
       for camera in tqdm(cameras):
-        renderer.render(inputs, camera)
+        renderer.render(inputs, camera, **kwargs)
     torch.cuda.synchronize()
-    ti.sync()
     return time.time() - start_time
 
-def bench_backward(inputs:PackedGaussians, renderer:GaussianRenderer, cameras):
+def bench_backward(gaussians, renderer, cameras, **kwargs):
+    inputs = renderer.pack_inputs(gaussians, requires_grad=True)
+    torch.cuda.synchronize()
+
     start_time = time.time()
-
     for camera in tqdm(cameras):
-      inputs.requires_grad_(True)
 
-      output = renderer.render(inputs, camera)
+      output = renderer.render(inputs, camera, **kwargs)
       loss = output.image.sum()
       loss.backward()
 
     torch.cuda.synchronize()
-    ti.sync()
     return time.time() - start_time
 
 def main():
@@ -67,6 +58,10 @@ def main():
   parser.add_argument("--backward", action="store_true", help="benchmark backward pass")
   parser.add_argument("--sh_degree", type=int, default=None, help="modify spherical harmonics degree")
   parser.add_argument("--no_sort", action="store_true", help="disable sorting by scale (sorting makes tilemapping faster)")
+  parser.add_argument("--depth", action="store_true", help="render depth maps")
+  
+  parser.add_argument("--taichi", action="store_true", help="use taichi renderer")
+  
 
   args = parser.parse_args()
 
@@ -86,9 +81,11 @@ def main():
   if not args.no_sort:
     gaussians = gaussians.sorted()
 
-
-  renderer =  GaussianRenderer() 
-  renderer.update_settings(tile_size=args.tile_size)
+  if args.taichi:
+    from splat_viewer.renderer.taichi_3d_gaussian_splatting import TaichiRenderer
+    renderer = TaichiRenderer()
+  else:
+    renderer =  GaussianRenderer(tile_size=args.tile_size) 
 
   cameras = workspace.cameras # [pad_to_tile(camera, args.tile_size) for camera in workspace.cameras]
 
@@ -101,11 +98,11 @@ def main():
   print(f"Cameras: {len(workspace.cameras)}, Image sizes: {image_sizes}")
 
 
-  inputs = renderer.pack_inputs(gaussians)
   bench_renders = bench_backward if args.backward else bench_forward
 
-  print(f"Warmup @ {args.n // 10} cameras")
-  bench_renders(inputs, renderer, n_cameras(args.n // 10))
+  warmup_size = args.n // 10
+  print(f"Warmup @ {warmup_size} cameras")
+  bench_renders(gaussians, renderer, n_cameras(warmup_size))
 
 
   print(f"Benchmark @ {args.n} cameras:")
@@ -113,12 +110,12 @@ def main():
   if args.profile:
     with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
       with record_function("model_inference"):
-        ellapsed = bench_renders(inputs, renderer, n_cameras(args.n))
+        ellapsed = bench_renders(gaussians, renderer, n_cameras(args.n), render_depth=args.depth)
     result = prof.key_averages().table(sort_by="self_cuda_time_total", 
                                        row_limit=25, max_name_column_width=70)
     print(result)
   else:
-    ellapsed = bench_renders(inputs, renderer, n_cameras(args.n))
+    ellapsed = bench_renders(gaussians, renderer, n_cameras(args.n), render_depth=args.depth)
   print(f"{args.n} images in {ellapsed:.2f}s at {args.n / ellapsed:.2f} images/s")
 
     

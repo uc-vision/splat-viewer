@@ -6,6 +6,23 @@ import torch
 
 from .sh_utils import check_sh_degree, num_sh_features, rgb_to_sh, sh_to_rgb
 
+from dataclasses import dataclass
+from splat_viewer.camera.fov import FOVCamera
+
+
+
+@dataclass
+class Rendering:
+  image : torch.Tensor
+  camera : FOVCamera
+
+  depth : Optional[torch.Tensor] = None
+  depth_var: Optional[torch.Tensor] = None
+
+  @property
+  def image_size(self):
+    y, x = self.image.shape[1:]
+    return x, y
 
 @tensorclass
 class Gaussians():
