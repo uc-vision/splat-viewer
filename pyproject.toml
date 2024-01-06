@@ -1,6 +1,6 @@
 [project]
 name = "splat-viewer"  
-version = "0.2.1"  
+version = "0.3.0"  
 description = "A viewer for gaussian-splatting reconstructions"  
 readme = "README.md" 
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ maintainers = [
 dependencies = [
   "beartype", 
   "taichi-nightly", 
-  "taichi-splatting >= 0.2.0",
+  "taichi-splatting >= 0.3.0",
   "tqdm", 
   "tensordict",
   "open3d >= 0.16",
