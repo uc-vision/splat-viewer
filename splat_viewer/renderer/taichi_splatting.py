@@ -73,12 +73,9 @@ class GaussianRenderer:
       config, 
       use_sh=True, render_depth=render_depth)
     
-    if ~torch.isfinite(rendering.depth).any():
-      print("Warning: rendering depth contains NaNs")
-      rendering.depth[~torch.isfinite(rendering.depth)] = 0.0 
     
     return Rendering(image=rendering.image, 
                             depth=rendering.depth, 
                             depth_var=rendering.depth_var, 
-                            camera=camera)
+                             camera=camera)
     
