@@ -159,6 +159,7 @@ class Renderer:
 
       image, depth = self.pyrender_scene.render(camera, settings)
       depth_gaussian = self.rendering.depth.cpu().numpy()
+      depth_gaussian[depth_gaussian == 0] = np.inf
 
       mask = np.bitwise_and(depth_gaussian > depth, depth > 0)
       return np.where(np.expand_dims(mask, [-1]), image, image_gaussian)
