@@ -93,8 +93,6 @@ class TaichiRenderer:
       point_invalid_mask = torch.zeros(gaussians.position.shape[0], dtype=torch.int8), 
       color_max_sh_band = gaussians.sh_degree(),
     )
-  
-
     
 
   def render(self, inputs:GaussianPointCloudRasterisation.GaussianPointCloudRasterisationInput, 

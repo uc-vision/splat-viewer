@@ -66,7 +66,7 @@ def main():
   args = parser.parse_args()
 
   ti.init(arch=ti.cuda, offline_cache=True, 
-          debug=args.debug, kernel_profiler=args.profile, device_memory_GB=0.1)
+          debug=args.debug, device_memory_GB=0.1)
 
 
   workspace = load_workspace(args.model_path)

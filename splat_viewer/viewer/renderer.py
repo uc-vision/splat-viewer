@@ -89,7 +89,7 @@ class RenderState:
     return gaussians
 
 class Renderer:
-  def __init__(self, workspace:Workspace, gaussians:Gaussians, gaussian_renderer):
+  def __init__(self, workspace:Workspace, gaussians:Gaussians):
     self.workspace = workspace
 
     self.gaussians = gaussians

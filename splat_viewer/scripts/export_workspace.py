@@ -6,7 +6,7 @@ import shutil
 
 
 def main():
-  parser = argparse.ArgumentParser(description="Export model")
+  parser = argparse.ArgumentParser(description="Export a trained workspace (only the minimum files required)")
   parser.add_argument("model_path", type=Path)
   parser.add_argument("output", type=Path)
 

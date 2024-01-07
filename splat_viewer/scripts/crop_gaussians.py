@@ -19,14 +19,14 @@ def crop_model(model, cameras:List[FOVCamera], args):
   n_near = (is_near >= min_views).sum(dtype=torch.int32)
 
   print(f"Cropped model from {model.batch_shape} to {n} visible points, {n_near} near (at least {min_views} views)")
-  model = replace(model, labels=(is_near >= min_views).to(torch.int32).reshape(-1, 1))
+  model = replace(model, foreground=(is_near >= min_views).reshape(-1, 1))
 
   model = model[is_visible > 0]
   return model
 
 def main():
 
-  parser = argparse.ArgumentParser(description="Extract a point cloud from a gaussian splatting model")
+  parser = argparse.ArgumentParser(description="Add a 'foreground' annotation to a .ply gaussian splatting file")
   parser.add_argument("model_path", type=Path, help="Path to the gaussian splatting workspace")
   parser.add_argument("--scan", type=str,  help="Input scan file")
   
@@ -63,11 +63,11 @@ def main():
     model = model.to(args.device)
     model = crop_model(model, workspace.cameras, args)
     
-    idx_crop = torch.nonzero(model.labels.squeeze() > 0).squeeze()
+    idx_crop = torch.nonzero(model.foreground.squeeze() > 0).squeeze()
 
     def filtered(mask):
       mask = torch.from_numpy(mask.numpy()).to(model.device)
-      model.labels[idx_crop[~mask], :] = 0
+      model.foreground[idx_crop[~mask], :] = False
 
     if any([args.radius_outliers, args.statistical_outliers]):
       pcd = to_pcd(model[idx_crop].cpu())
@@ -81,7 +81,7 @@ def main():
         filtered(keep)
 
 
-      num_removed = idx_crop.shape[0] - (model.labels > 0).sum()
+      num_removed = idx_crop.shape[0] - (model.foreground > 0).sum()
       print(f"Found {num_removed} outliers")
 
     if args.write:    
