@@ -59,6 +59,8 @@ def main():
   parser.add_argument("--sh_degree", type=int, default=None, help="modify spherical harmonics degree")
   parser.add_argument("--no_sort", action="store_true", help="disable sorting by scale (sorting makes tilemapping faster)")
   parser.add_argument("--depth", action="store_true", help="render depth maps")
+
+  parser.add_argument("--image_scale", type=float, default=1.0, help="scale the image size renderered" )
   
   parser.add_argument("--taichi", action="store_true", help="use taichi renderer")
   
@@ -87,15 +89,16 @@ def main():
   else:
     renderer =  GaussianRenderer(tile_size=args.tile_size) 
 
-  cameras = workspace.cameras # [pad_to_tile(camera, args.tile_size) for camera in workspace.cameras]
+  cameras = [camera.scale_size(args.image_scale) for camera in workspace.cameras]
+  
 
   def n_cameras(n):
     return list(itertools.islice(itertools.cycle(cameras), n))
 
   print(f"Benchmarking {args.model_path} with {gaussians.batch_size[0]} points")
 
-  image_sizes = set([tuple(camera.image_size) for camera in workspace.cameras])
-  print(f"Cameras: {len(workspace.cameras)}, Image sizes: {image_sizes}")
+  image_sizes = set([tuple(camera.image_size) for camera in cameras])
+  print(f"Cameras: {len(workspace.cameras)}, Image sizes: {image_sizes} (scaled by {args.image_scale})")
 
 
   bench_renders = bench_backward if args.backward else bench_forward

@@ -2,9 +2,17 @@
 
 A viewer and some tools to work with guassian splatting reconstructions. Currently will open .ply files and gaussian splatting workspaces from the original guassian-splatting implementation. Intended primarily for testing [taichi-splatting](https://github.com/uc-vision/taichi-splatting)
 
+
+# Example data
+
+Some example scenes can be found from the official [gaussian-splatting](https://github.com/graphdeco-inria/gaussian-splatting) page. Under [Pre-trained models](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/datasets/pretrained/models.zip).
+
+
 # splat-viewer 
 
-A gaussian splatting viewer.
+A gaussian splatting viewer. An example of some visualizations produced by this viewer can be seen:
+[![Watch the video](https://img.youtube.com/vi/4ysMY5lti7c/hqdefault.jpg)](https://www.youtube.com/embed/4ysMY5lti7c)
+
 
 ## Arguments
 
