@@ -87,8 +87,17 @@ class FOVCamera:
     shortest = min(self.image_size)
     scale = (min_size / shortest if shortest < min_size 
              else max_size / shortest)
-        
     return self.scale_size(scale)
+  
+  def resize_longest(self, size) -> 'FOVCamera':
+    longest = max(self.image_size)
+    return self.scale_size(size / longest)
+
+  
+  def resize_to(self, size:num_pair) -> 'FOVCamera':
+    size = np.array(size)
+    return self.scale_size(size / self.image_size)
+  
 
   def zoom(self, zoom_factor) -> 'FOVCamera':
     return replace(self, focal_length=self.focal_length * zoom_factor)
