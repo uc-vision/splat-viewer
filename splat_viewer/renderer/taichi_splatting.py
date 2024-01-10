@@ -5,7 +5,7 @@ import torch
 from splat_viewer.camera.fov import FOVCamera
 
 from taichi_splatting import renderer
-from taichi_splatting.data_types import CameraParams
+from taichi_splatting.perspective import CameraParams
 
 from splat_viewer.gaussians.data_types import Gaussians, Rendering
 

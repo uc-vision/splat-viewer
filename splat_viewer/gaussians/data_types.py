@@ -46,6 +46,9 @@ class Gaussians():
     assert self.foreground is None or self.foreground.shape[1] == 1, f"Expected shape (N, 1), got {self.foreground.shape}"
     assert self.label is None or self.label.shape[1] == 1, f"Expected shape (N, 1), got {self.label.shape}"
 
+  def n(self):
+    return self.batch_size[0]
+
   def __repr__(self):
     return f"Gaussians with {self.batch_shape[0]} points, sh_degree={self.sh_degree}"
 

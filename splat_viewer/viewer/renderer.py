@@ -147,7 +147,7 @@ class Renderer:
     with torch.inference_mode():      
       self.rendering = self.render_gaussians(camera, settings)   
     
-    min_depth = self.workspace.camera_extent / 50.
+    min_depth = self.workspace.camera_extent / 10.
 
     if settings.view_mode == ViewMode.Depth:
       image_gaussian = self.colormap_torch(self.rendering.depth, 
