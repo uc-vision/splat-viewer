@@ -8,7 +8,6 @@ from tqdm import tqdm
 import torch
 from .fov import FOVCamera
 
-
 def make_homog(points):
   shape = list(points.shape)
   shape[-1] = 1
@@ -28,6 +27,7 @@ def project_points(transform, xyz):
   depth = homog[..., 2:3]
   xy = homog[..., 0:2] 
   return (xy / depth), depth
+
 
 
 @beartype

@@ -9,7 +9,7 @@ class ViewMode(Enum):
   Points = 2
   Hidden = 3
 
-@dataclass 
+@dataclass(frozen=True)
 class Show:
   initial_points: bool = False
   cameras: bool = False

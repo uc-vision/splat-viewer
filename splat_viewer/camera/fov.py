@@ -1,17 +1,15 @@
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from numbers import Number
-
-from camera_geometry import Camera
 
 from pathlib import Path
 
 import numpy as np
 import json
 
-from camera_geometry.transforms import unproject_pixels, project_points
-
 from beartype import beartype
 from beartype.typing import Tuple
+
+from splat_viewer.camera.transforms import project_points, unproject_pixels
 
 
 num_pair = np.ndarray | Tuple[Number, Number]
@@ -30,7 +28,7 @@ class FOVCamera:
   image_size : np.ndarray # 2
 
   image_name: str
-  principal_point : np.ndarray = np.array([0., 0.]) 
+  principal_point : np.ndarray = field(default_factory=lambda: np.array([0., 0.]))
 
   near:float  = 0.1
   far :float  = 200.0
@@ -238,19 +236,6 @@ def split_rt(Rt):
 
 
 
-def camera_to_fov(camera:Camera) -> FOVCamera:
-  assert camera.has_distortion == False, "Simple FOV camera does not have distortion"
-  R, T = split_rt(camera.camera_t_parent)
-
-  return FOVCamera(
-    position = T,
-    rotation = R,
-    focal_length = np.array(camera.focal_length),
-    principal_point = np.array(camera.principal_point),
-    image_size = np.array(camera.image_size, dtype=np.int32),
-  )
-
-
 def from_json(camera_info) -> FOVCamera:
   pos = np.array(camera_info['position'])
   rotation = np.array(camera_info['rotation']).reshape(3, 3)
@@ -274,3 +259,4 @@ def load_camera_json(filename:Path):
 
   return {camera_info['id']: from_json(camera_info) for camera_info in cameras}
   
+

@@ -1,13 +1,12 @@
 import math
 from typing import List
-
-from camera_geometry.transforms import batch_transform_points
 import trimesh
 
 import numpy as np
 import pyrender
 
 from splat_viewer.camera.fov import FOVCamera
+from splat_viewer.camera.transforms import batch_transform_points
 
 def instance_meshes(mesh:trimesh.Trimesh, transforms:np.array):
   vertices = batch_transform_points(transforms, mesh.vertices)
