@@ -45,6 +45,8 @@ def bench_backward(gaussians, renderer, cameras, **kwargs):
 
 def main():
 
+  torch.set_printoptions(precision=5, sci_mode=False, linewidth=120)
+
   parser = argparse.ArgumentParser()
 
   parser.add_argument("model_path", type=Path, help="workspace folder containing cameras.json, input.ply and point_cloud folder with .ply models")
@@ -66,7 +68,7 @@ def main():
 
   args = parser.parse_args()
 
-  ti.init(arch=ti.cuda, offline_cache=True, 
+  ti.init(arch=ti.cuda, offline_cache=True, log_level=ti.INFO,
           debug=args.debug, device_memory_GB=0.1)
 
 
@@ -105,7 +107,7 @@ def main():
 
   warmup_size = args.n // 10
   print(f"Warmup @ {warmup_size} cameras")
-  bench_renders(gaussians, renderer, n_cameras(warmup_size))
+  bench_renders(gaussians, renderer, n_cameras(warmup_size), render_depth=args.depth)
 
 
   print(f"Benchmark @ {args.n} cameras:")
