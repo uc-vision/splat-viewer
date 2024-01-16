@@ -13,7 +13,7 @@ maintainers = [
 dependencies = [
   "beartype", 
   "taichi-nightly>=1.8.0", 
-  "taichi-splatting >= 0.3.3",
+  "taichi-splatting >= 0.3.5",
   "tqdm", 
   "tensordict",
   "open3d >= 0.16",
@@ -38,6 +38,9 @@ build-backend = "setuptools.build_meta"
 [project.scripts]  # Optional
 splat-viewer = "splat_viewer.scripts.splat_viewer:main"
 splat-benchmark = "splat_viewer.scripts.splat_benchmark:main"
+debug-tiles = "splat_viewer.scripts.debug_tiles:main"
+crop_gaussians = "splat_viewer.scripts.crop_gaussians:main"
+export_workspace = "splat_viewer.scripts.export_workspace:main"
 
 
 [tool.ruff]

@@ -38,7 +38,7 @@ class GaussianRenderer:
   @dataclass 
   class Config:
     tile_size : int = 16
-    alpha_multiplier : float = 1.0
+    tight_culling : bool = True
 
   def __init__(self, **kwargs):
     self.config = GaussianRenderer.Config(**kwargs)
@@ -66,6 +66,7 @@ class GaussianRenderer:
 
     config = renderer.RasterConfig(
       tile_size=self.config.tile_size,
+      tight_culling=self.config.tight_culling,
     )
     rendering = renderer.render_gaussians(
       inputs.gaussians, inputs.features,

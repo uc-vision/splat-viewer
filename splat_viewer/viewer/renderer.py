@@ -5,6 +5,7 @@ import numpy as np
 import pyrender
 import torch
 from splat_viewer.camera.fov import FOVCamera
+#from splat_viewer.renderer.diff_gaussian_rasterization import DiffGaussianRenderer
 from splat_viewer.renderer.taichi_splatting import GaussianRenderer
 
 from splat_viewer.gaussians.workspace import Workspace
@@ -96,6 +97,7 @@ class Renderer:
     self.packed_gaussians = None
     self.render_state = RenderState()
 
+    # self.gaussian_renderer = DiffGaussianRenderer()
     self.gaussian_renderer  = GaussianRenderer()
     # self.gaussian_renderer  =  TaichiRenderer()
 

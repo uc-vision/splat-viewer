@@ -18,7 +18,7 @@ from torch.profiler import profile, record_function, ProfilerActivity
 
 
 
-def bench_forward(gaussians, renderer, cameras, **kwargs):
+def bench_forward(gaussians, renderer, cameras, profiler=None, **kwargs):
     inputs = renderer.pack_inputs(gaussians)
     torch.cuda.synchronize()
 
@@ -26,10 +26,14 @@ def bench_forward(gaussians, renderer, cameras, **kwargs):
     with torch.no_grad():
       for camera in tqdm(cameras):
         renderer.render(inputs, camera, **kwargs)
+
+        if profiler is not None:
+          profiler.step()
+
     torch.cuda.synchronize()
     return time.time() - start_time
 
-def bench_backward(gaussians, renderer, cameras, **kwargs):
+def bench_backward(gaussians, renderer, cameras, profiler=None, **kwargs):
     inputs = renderer.pack_inputs(gaussians, requires_grad=True)
     torch.cuda.synchronize()
 
@@ -39,6 +43,9 @@ def bench_backward(gaussians, renderer, cameras, **kwargs):
       output = renderer.render(inputs, camera, **kwargs)
       loss = output.image.sum()
       loss.backward()
+
+      if profiler is not None:
+        profiler.step()
 
     torch.cuda.synchronize()
     return time.time() - start_time
@@ -52,7 +59,9 @@ def main():
   parser.add_argument("model_path", type=Path, help="workspace folder containing cameras.json, input.ply and point_cloud folder with .ply models")
   parser.add_argument("--device", type=str, default="cuda:0", help="torch device to use")
   parser.add_argument("--model", type=str, default=None, help="model iteration to load from point_clouds folder")
+
   parser.add_argument("--profile", action="store_true", help="enable profiling")
+  parser.add_argument("--trace", type=str, default=None, help="enable profiling with tensorboard trace for profiled data")
   
   parser.add_argument("--debug", action="store_true", help="enable taichi kernels in debug mode")
   parser.add_argument("-n", type=int, default=500, help="number of iterations to render")
@@ -60,11 +69,15 @@ def main():
   parser.add_argument("--backward", action="store_true", help="benchmark backward pass")
   parser.add_argument("--sh_degree", type=int, default=None, help="modify spherical harmonics degree")
   parser.add_argument("--no_sort", action="store_true", help="disable sorting by scale (sorting makes tilemapping faster)")
+  parser.add_argument("--no_tight_culling", action="store_true", help="disable tight (OBB) culling")
+
   parser.add_argument("--depth", action="store_true", help="render depth maps")
 
-  parser.add_argument("--resize_image", type=int, default=None, help="resize longest edge of camera image sizes")
+  parser.add_argument("--image_size", type=int, default=None, help="resize longest edge of camera image sizes")
+
+
   parser.add_argument("--taichi", action="store_true", help="use taichi renderer")
-  
+  parser.add_argument("--diff_gaussian", action="store_true", help="use diff gaussian renderer")
 
   args = parser.parse_args()
 
@@ -87,12 +100,15 @@ def main():
   if args.taichi:
     from splat_viewer.renderer.taichi_3d_gaussian_splatting import TaichiRenderer
     renderer = TaichiRenderer()
+  if args.diff_gaussian:
+    from splat_viewer.renderer.diff_gaussian_rasterization import DiffGaussianRenderer
+    renderer = DiffGaussianRenderer()
   else:
-    renderer =  GaussianRenderer(tile_size=args.tile_size) 
+    renderer =  GaussianRenderer(tile_size=args.tile_size, tight_culling=not args.no_tight_culling) 
 
   cameras = workspace.cameras
-  if args.resize_image is not None:
-    cameras = [camera.resize_longest(args.resize_image) for camera in cameras]
+  if args.image_size is not None:
+    cameras = [camera.resize_longest(args.image_size) for camera in cameras]
 
   def n_cameras(n):
     return list(itertools.islice(itertools.cycle(cameras), n))
@@ -112,13 +128,21 @@ def main():
 
   print(f"Benchmark @ {args.n} cameras:")
 
-  if args.profile:
-    with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
+  if args.profile or args.trace:
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], 
+                record_shapes=True, with_stack=True) as prof:
       with record_function("model_inference"):
-        ellapsed = bench_renders(gaussians, renderer, n_cameras(args.n), render_depth=args.depth)
-    result = prof.key_averages().table(sort_by="self_cuda_time_total", 
-                                       row_limit=25, max_name_column_width=70)
-    print(result)
+        ellapsed = bench_renders(gaussians, renderer, n_cameras(args.n), profiler=prof, render_depth=args.depth)
+    result = prof.key_averages(group_by_stack_n=4).table(sort_by="self_cuda_time_total", 
+                                       row_limit=25, max_name_column_width=100)
+    
+    if args.trace:
+      print(f"Writing chrome trace file to {args.trace}")
+      prof.export_chrome_trace(args.trace)
+
+    if args.profile:
+      print(result)
+
   else:
     ellapsed = bench_renders(gaussians, renderer, n_cameras(args.n), render_depth=args.depth)
   print(f"{args.n} images in {ellapsed:.2f}s at {args.n / ellapsed:.2f} images/s")

@@ -67,13 +67,13 @@ options:
 # splat-benchmark
 
 A benchmark to test forward and backward passes of differentiable renderers. 
-Example `splat-benchmark models/garden --sh_degree 1 --resize_image 1920`
+Example `splat-benchmark models/garden --sh_degree 1 --image_size 1920`
 
 ## Arguments
 
 ```
 usage: splat-benchmark [-h] [--device DEVICE] [--model MODEL] [--profile] [--debug] [-n N] [--tile_size TILE_SIZE] [--backward] [--sh_degree SH_DEGREE] [--no_sort] [--depth]
-                       [--resize_image RESIZE_IMAGE] [--taichi]
+                       [--image_size RESIZE_IMAGE] [--taichi]
                        model_path
 
 positional arguments:
@@ -93,7 +93,7 @@ options:
                         modify spherical harmonics degree
   --no_sort             disable sorting by scale (sorting makes tilemapping faster)
   --depth               render depth maps
-  --resize_image RESIZE_IMAGE
+  --image_size RESIZE_IMAGE
                         resize longest edge of camera image sizes
   --taichi              use taichi renderer
 

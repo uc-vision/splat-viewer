@@ -31,7 +31,7 @@ class FOVCamera:
   principal_point : np.ndarray = field(default_factory=lambda: np.array([0., 0.]))
 
   near:float  = 0.1
-  far :float  = 200.0
+  far :float  = 50.0
 
   
   @property
@@ -183,7 +183,7 @@ class FOVCamera:
     return self.image_t_world
   
   @property
-  def ncd_t_camera(self):
+  def ndc_t_camera(self):
     """ OpenGL projection - Camera to Normalised Device Coordinates (NDC)
     """
     w, h = self.image_size
@@ -192,16 +192,18 @@ class FOVCamera:
     fx, fy = self.focal_length
     n, f = self.near, self.far
 
-    return np.array([[
-          2.0 * fx / w,   0,              1.0 - 2.0 * cx / w,   0,
-          0,              2.0 * fy / h,   2.0 * cy / h - 1.0,   0,
-          0,              0,              (f + n) / (n - f),    (2 * f * n) / (n - f),
-          0,              0,              -1.0,                 0
-      ]], dtype=np.float32)
+    return np.array([
+          [2.0 * fx / w,   0,              1.0 - 2.0 * cx / w,   0],
+          [0,              2.0 * fy / h,   2.0 * cy / h - 1.0,   0],
+          [0,              0,              (f + n) / (n - f),    (2 * f * n) / (n - f)],
+          [0,              0,              1.0,                 0]
+      ], dtype=np.float32)
   
+
+
   @property
   def gl_camera_t_image(self):
-    return np.linalg.inv(self.ncd_t_camera)
+    return np.linalg.inv(self.ndc_t_camera)
 
   @property
   def gl_camera_t_world(self):
@@ -217,7 +219,8 @@ class FOVCamera:
 
   @property
   def ndc_t_world(self):
-    return self.ncd_t_camera @ self.gl_camera_t_world
+
+    return self.ndc_t_camera @ self.gl_camera_t_world
 
 
 def join_rt(R, T):
