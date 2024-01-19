@@ -6,6 +6,8 @@ from PySide6.QtWidgets import QApplication
 
 from splat_viewer.gaussians.workspace import Workspace, load_workspace
 from splat_viewer.gaussians import Gaussians
+from splat_viewer.renderer.arguments import add_render_arguments, renderer_from_args
+from splat_viewer.renderer.taichi_splatting import GaussianRenderer
 
 from splat_viewer.viewer.scene_widget import SceneWidget, Settings
 
@@ -21,8 +23,9 @@ def show_workspace(workspace:Workspace, gaussians:Gaussians = None):
   from splat_viewer.viewer.viewer import sigint_handler
   signal.signal(signal.SIGINT, sigint_handler)
 
+  
   app = QtWidgets.QApplication(["viewer"])
-  widget = SceneWidget()
+  widget = SceneWidget(renderer = GaussianRenderer())
 
   if gaussians is None:
     gaussians = workspace.load_model(workspace.latest_iteration())
@@ -42,9 +45,8 @@ def process_cl_args():
     parser.add_argument('--model', default=None, help="load model from point_clouds folder, default is latest iteration") 
     parser.add_argument('--device', default='cuda:0', help="torch device to use")
     parser.add_argument('--debug', action='store_true', help="enable taichi kernels in debug mode")
-    
-    parser.add_argument('--taichi', action='store_true', help="render with the taichi_3d_gaussian_splatting renderer")
 
+    add_render_arguments(parser)    
 
     parsed_args, unparsed_args = parser.parse_known_args()
     return parsed_args, unparsed_args
@@ -76,7 +78,11 @@ def main():
 
     window = QtWidgets.QMainWindow()
 
-    scene_widget = SceneWidget(settings=Settings(device=parsed_args.device))
+    scene_widget = SceneWidget(
+       settings=Settings(device=parsed_args.device),
+       renderer = renderer_from_args(parsed_args)
+    )
+    
     scene_widget.load_workspace(workspace, gaussians)
 
     window.setCentralWidget(scene_widget)

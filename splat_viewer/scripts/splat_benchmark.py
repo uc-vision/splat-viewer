@@ -9,12 +9,11 @@ from tqdm import tqdm
 
 
 from splat_viewer.gaussians.data_types import Gaussians
-from splat_viewer.renderer.taichi_splatting import GaussianRenderer
 from splat_viewer.gaussians.workspace import load_workspace
+from splat_viewer.renderer.arguments import add_render_arguments, renderer_from_args
 
 import taichi as ti
 from torch.profiler import profile, record_function, ProfilerActivity
-
 
 
 
@@ -62,23 +61,23 @@ def main():
 
   parser.add_argument("--profile", action="store_true", help="enable profiling")
   parser.add_argument("--trace", type=str, default=None, help="enable profiling with tensorboard trace for profiled data")
-  
+  parser.add_argument("--backward", action="store_true", help="benchmark backward pass")
+
+  add_render_arguments(parser)
+
   parser.add_argument("--debug", action="store_true", help="enable taichi kernels in debug mode")
   parser.add_argument("-n", type=int, default=500, help="number of iterations to render")
-  parser.add_argument("--tile_size", type=int, default=16, help="tile size for rasterizer")
-  parser.add_argument("--backward", action="store_true", help="benchmark backward pass")
+
   parser.add_argument("--sh_degree", type=int, default=None, help="modify spherical harmonics degree")
   parser.add_argument("--no_sort", action="store_true", help="disable sorting by scale (sorting makes tilemapping faster)")
-  parser.add_argument("--no_tight_culling", action="store_true", help="disable tight (OBB) culling")
+
+
 
   parser.add_argument("--depth", action="store_true", help="render depth maps")
-
   parser.add_argument("--image_size", type=int, default=None, help="resize longest edge of camera image sizes")
 
 
-  parser.add_argument("--taichi", action="store_true", help="use taichi renderer")
-  parser.add_argument("--diff_gaussian", action="store_true", help="use diff gaussian renderer")
-
+  
   args = parser.parse_args()
 
   ti.init(arch=ti.cuda, offline_cache=True, log_level=ti.INFO,
@@ -97,14 +96,7 @@ def main():
   if not args.no_sort:
     gaussians = gaussians.sorted()
 
-  if args.taichi:
-    from splat_viewer.renderer.taichi_3d_gaussian_splatting import TaichiRenderer
-    renderer = TaichiRenderer()
-  if args.diff_gaussian:
-    from splat_viewer.renderer.diff_gaussian_rasterization import DiffGaussianRenderer
-    renderer = DiffGaussianRenderer()
-  else:
-    renderer =  GaussianRenderer(tile_size=args.tile_size, tight_culling=not args.no_tight_culling) 
+  renderer = renderer_from_args(args)
 
   cameras = workspace.cameras
   if args.image_size is not None:
@@ -128,8 +120,9 @@ def main():
 
   print(f"Benchmark @ {args.n} cameras:")
 
+
   if args.profile or args.trace:
-    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], 
+    with profile(activities=[ProfilerActivity.CUDA], 
                 record_shapes=True, with_stack=True) as prof:
       with record_function("model_inference"):
         ellapsed = bench_renders(gaussians, renderer, n_cameras(args.n), profiler=prof, render_depth=args.depth)

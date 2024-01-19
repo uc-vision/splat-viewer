@@ -38,11 +38,10 @@ class Settings:
   snapshot_size: Tuple[int, int] = (8192, 6144) 
   snapshot_tile: int = 1024
 
-  tile_size : int = 16
+
   device : str = 'cuda:0'
   
   bg_color : Tuple[float, float, float] = (1, 1, 1)
-  alpha_depth: float = 1.0
 
   show : Show = Show()
   view_mode : ViewMode = ViewMode.Normal

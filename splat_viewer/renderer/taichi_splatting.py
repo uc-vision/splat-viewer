@@ -39,6 +39,7 @@ class GaussianRenderer:
   class Config:
     tile_size : int = 16
     tight_culling : bool = True
+    use_depth16 : bool = False
 
   def __init__(self, **kwargs):
     self.config = GaussianRenderer.Config(**kwargs)
@@ -68,11 +69,15 @@ class GaussianRenderer:
       tile_size=self.config.tile_size,
       tight_culling=self.config.tight_culling,
     )
+
+    
     rendering = renderer.render_gaussians(
       inputs.gaussians, inputs.features,
       to_camera_params(camera, device),
       config, 
-      use_sh=True, render_depth=render_depth)
+      use_sh=True, 
+      use_depth16=self.config.use_depth16,
+      render_depth=render_depth)
     
     
     return Rendering(image=rendering.image, 

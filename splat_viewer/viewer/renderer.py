@@ -17,6 +17,10 @@ from .mesh import make_camera_markers
 from .settings import Settings, ViewMode
 
 
+
+
+
+
 def get_cv_colormap(cmap):
   colormap = np.arange(256, dtype=np.uint8).reshape(1, -1)
   colormap = cv2.applyColorMap(colormap, cmap)
@@ -89,17 +93,15 @@ class RenderState:
 
     return gaussians
 
-class Renderer:
-  def __init__(self, workspace:Workspace, gaussians:Gaussians):
+class WorkspaceRenderer:
+  def __init__(self, workspace:Workspace, gaussians:Gaussians, gaussian_renderer):
     self.workspace = workspace
 
     self.gaussians = gaussians
     self.packed_gaussians = None
     self.render_state = RenderState()
 
-    # self.gaussian_renderer = DiffGaussianRenderer()
-    self.gaussian_renderer  = GaussianRenderer()
-    # self.gaussian_renderer  =  TaichiRenderer()
+    self.gaussian_renderer = gaussian_renderer
 
     self.pyrender_scene = PyrenderScene(workspace)
 

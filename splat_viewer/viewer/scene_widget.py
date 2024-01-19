@@ -18,7 +18,7 @@ from splat_viewer.gaussians.workspace import Workspace
 from splat_viewer.gaussians import Gaussians
 from splat_viewer.viewer.interactions.animate import  animate_to_loop
 from splat_viewer.viewer.interaction import Interaction
-from splat_viewer.viewer.renderer import Renderer
+from splat_viewer.viewer.renderer import WorkspaceRenderer
 
     
 from .interactions.fly_control import FlyControl
@@ -28,7 +28,7 @@ from .settings import Settings, ViewMode
 
 
 class SceneWidget(QtWidgets.QWidget):
-  def __init__(self, settings:Settings = Settings()):
+  def __init__(self, settings:Settings = Settings(), renderer=None):
     super(SceneWidget, self).__init__()
 
     SceneWidget.instance = self
@@ -38,6 +38,7 @@ class SceneWidget(QtWidgets.QWidget):
 
     self.camera = SceneCamera()
     self.settings = settings
+    self.renderer = renderer
 
     self.setFocusPolicy(Qt.StrongFocus)
     self.setMouseTracking(True)
@@ -63,7 +64,7 @@ class SceneWidget(QtWidgets.QWidget):
   def load_workspace(self, workspace:Workspace, gaussians:Gaussians):
     self.workspace = workspace
     
-    self.renderer = Renderer(workspace, gaussians.to(device=self.settings.device))
+    self.workspace_renderer = WorkspaceRenderer(workspace, gaussians.to(device=self.settings.device), self.renderer)
     self.keypoints = self.read_keypoints()
 
     self.set_camera_index(0)
@@ -198,7 +199,6 @@ class SceneWidget(QtWidgets.QWidget):
       elif len(self.keypoints) > 0:
         animate_to_loop(self.camera_state, 
                         self.camera.view_matrix, self.keypoints)
-          
 
     return super().keyPressEvent(event)
   
@@ -221,10 +221,10 @@ class SceneWidget(QtWidgets.QWidget):
     
   @property
   def rendering(self):
-    if self.renderer.rendering is None:
+    if self.workspace_renderer.rendering is None:
       raise ValueError("No depth render available")
 
-    return self.renderer.rendering
+    return self.workspace_renderer.rendering
 
   def unproject_point(self, p:np.ndarray, depth:float) -> np.ndarray:
     render = self.rendering
@@ -286,21 +286,13 @@ class SceneWidget(QtWidgets.QWidget):
 
 
   def render_camera(self) -> FOVCamera:
-    m = self.settings.tile_size 
-    def next_mult(x):
-      return int(math.ceil(x / m) * m)
-      
-    w, h = self.image_size
-
-    round_size = (next_mult(w), next_mult(h))
-    return self.camera.resized(round_size)
+    return self.camera.resized(self.image_size)
   
-
   def render(self):
     camera = self.render_camera()
 
     self.view_image = np.ascontiguousarray(
-      self.renderer.render(camera, self.settings))
+      self.workspace_renderer.render(camera, self.settings))
     
     self.dirty = False
     return self.view_image
@@ -341,7 +333,7 @@ class SceneWidget(QtWidgets.QWidget):
         tile_camera = camera.crop(np.array([x * tile_size, y * tile_size]), 
                              np.array([tile_size, tile_size]))
         
-        image = self.renderer.render(tile_camera, self.settings)
+        image = self.workspace_renderer.render(tile_camera, self.settings)
         tile = full_image[y * tile_size:(y + 1) * tile_size, 
                           x * tile_size:(x + 1) * tile_size, :] 
         
