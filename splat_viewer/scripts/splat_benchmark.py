@@ -114,12 +114,8 @@ def benchmark_model(model_path:Path, args):
   return dict(ellapsed=ellapsed, num_cameras=num_cameras, rate=num_cameras / ellapsed)
 
 
-def main():
-
-  torch.set_printoptions(precision=5, sci_mode=False, linewidth=120)
-
+def benchmark_args():
   parser = argparse.ArgumentParser()
-
   parser.add_argument("model_paths", type=Path, nargs='+', help="workspace folder containing cameras.json, input.ply and point_cloud folder with .ply models")
 
   parser.add_argument("--device", type=str, default="cuda:0", help="torch device to use")
@@ -137,27 +133,29 @@ def main():
   parser.add_argument("--sh_degree", type=int, default=None, help="modify spherical harmonics degree")
   parser.add_argument("--no_sort", action="store_true", help="disable sorting by scale (sorting makes tilemapping faster)")
 
-
-
   parser.add_argument("--depth", action="store_true", help="render depth maps")
   parser.add_argument("--image_size", type=int, default=None, help="resize longest edge of camera image sizes")
 
+  return parser
 
-  
+def main():
+  torch.set_printoptions(precision=5, sci_mode=False, linewidth=120)
+    
+  parser = benchmark_args()
   args = parser.parse_args()
 
   ti.init(arch=ti.cuda, offline_cache=True, log_level=ti.INFO,
           debug=args.debug, device_memory_GB=0.1)
 
+
   summary = {}
 
   for model_path in args.model_paths:
     summary[model_path] = benchmark_model(model_path, args)
-
-  
-  print("Summary:")
+ 
+  print("Model\t Rate(images/sec)")
   for model_path, info in summary.items():
-    print(f"{model_path}({info['num_cameras']}): {info['rate']:.2f} images/s")
+    print(f"{model_path}({info['num_cameras']})\t {info['rate']:.2f}")
 
 if __name__ == "__main__":
   main()  
