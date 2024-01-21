@@ -50,7 +50,7 @@ def main():
     impls['diff_gaussian'] = RendererArgs(impl=RendererImpl.DiffGaussian)
 
     if image_size <= 2048:
-      impls['taichi_3dgs'] [RendererArgs(impl = RendererImpl.Taichi3DGS)] 
+      impls['taichi_3dgs'] = [RendererArgs(impl = RendererImpl.Taichi3DGS)] 
 
     if image_size >= 2048:
       impls['taichi_32'] = RendererArgs(
