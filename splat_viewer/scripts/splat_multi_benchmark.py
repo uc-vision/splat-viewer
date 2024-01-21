@@ -4,7 +4,7 @@ import pandas as pd
 import torch
 
 import taichi as ti
-from splat_viewer.benchmark.arguments import benchmark_args
+from splat_viewer.benchmark.arguments import benchmark_args, make_benchmark_args
 from splat_viewer.benchmark.run import benchmark_model
 from splat_viewer.renderer.arguments import RendererArgs, RendererImpl
 
@@ -31,10 +31,11 @@ def main():
   parser.add_argument("--write_to", type=str, default="benchmark.csv", help="output filename")
 
   cmd_args = parser.parse_args()
+  args = make_benchmark_args(cmd_args)
 
 
   ti.init(arch=ti.cuda, offline_cache=True, log_level=ti.INFO,
-          debug=cmd_args.debug, device_memory_GB=0.1)
+          debug=args.debug, device_memory_GB=0.1)
 
   results = {}
   models = []
@@ -61,13 +62,13 @@ def main():
     
     for impl_name, impl_args in impls.items():
       for backward in [False]:
-          args = replace(cmd_args, 
+          run_args = replace(args, 
                          renderer=impl_args,
                          image_size=image_size,
                          backward=False)
 
           key = (impl_name, image_size, backward)
-          models, results[key] = benchmark_models(args)
+          models, results[key] = benchmark_models(run_args)
 
 
     index = pd.MultiIndex.from_tuples(
