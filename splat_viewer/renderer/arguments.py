@@ -24,7 +24,7 @@ class RendererImpl(Enum):
   DiffGaussian    = "diff_gaussian_rasterization"
 
 
-@dataclass 
+@dataclass(frozen=True)
 class RendererArgs:
   tile_size: int = 16
   no_tight_culling: bool = False
