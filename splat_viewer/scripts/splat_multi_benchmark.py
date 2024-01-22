@@ -60,10 +60,12 @@ def main():
           print(f"{impl_name}: image_size={image_size} {'forward+backward' if backward else 'forward'}")
           print("------------------------------------")
 
-          results = benchmark_models(run_args)
-          models = list(results[key].keys())
+          result_dict = benchmark_models(run_args)
+          models = list(result_dict.keys())
           results[key] = { info['rate'] if info is not None else 0.0
-                           for info in results[key].values() }
+                           for info in result_dict.values() }
+          
+          print(results.loc[key])
 
 
   index = pd.MultiIndex.from_tuples(
