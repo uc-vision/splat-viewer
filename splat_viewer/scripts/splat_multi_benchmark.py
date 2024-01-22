@@ -61,11 +61,11 @@ def main():
         )
     
     for impl_name, impl_args in impls.items():
-      for backward in [False]:
+      for backward in [False, True]:
           run_args = replace(args, 
                          renderer=impl_args,
                          image_size=image_size,
-                         backward=False)
+                         backward=backward)
 
           key = (impl_name, image_size, backward)
           models, results[key] = benchmark_models(run_args)
