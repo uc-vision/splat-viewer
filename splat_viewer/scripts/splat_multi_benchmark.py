@@ -68,7 +68,13 @@ def main():
                          backward=backward)
 
           key = (impl_name, image_size, backward)
+
+          print("------------------------------------")
+          print(f"{impl_name}: image_size={image_size} {'forward+backward' if backward else 'forward'}")
+          print("------------------------------------")
+
           models, results[key] = benchmark_models(run_args)
+          
 
 
     index = pd.MultiIndex.from_tuples(
