@@ -1,5 +1,5 @@
 import math
-from typing import List
+from beartype.typing import List
 import trimesh
 
 import numpy as np

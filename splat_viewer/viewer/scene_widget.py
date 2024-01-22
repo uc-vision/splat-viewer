@@ -1,5 +1,5 @@
 from dataclasses import replace
-from typing import Tuple
+from beartype.typing import Tuple
 
 from PySide6 import QtGui, QtCore, QtWidgets
 from PySide6.QtCore import Qt, QEvent

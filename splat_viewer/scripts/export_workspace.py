@@ -1,7 +1,7 @@
 import argparse
 from natsort import natsorted
 from pathlib import Path
-from typing import List
+from beartype.typing import List
 import shutil
 
 

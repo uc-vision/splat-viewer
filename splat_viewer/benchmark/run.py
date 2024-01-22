@@ -3,7 +3,7 @@ from dataclasses import replace
 import itertools
 from pathlib import Path
 import time
-from typing import List
+from beartype.typing import List
 
 import torch
 from tqdm import tqdm

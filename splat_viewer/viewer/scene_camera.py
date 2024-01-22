@@ -1,6 +1,6 @@
 from copy import deepcopy
 from dataclasses import replace
-from typing import Tuple
+from beartype.typing import Tuple
 import trimesh
 import pyrender
 

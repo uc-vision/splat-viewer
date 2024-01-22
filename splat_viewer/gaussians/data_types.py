@@ -1,6 +1,6 @@
 from dataclasses import replace
 import math
-from typing import Optional
+from beartype.typing import Optional
 from tensordict import tensorclass
 import torch
 

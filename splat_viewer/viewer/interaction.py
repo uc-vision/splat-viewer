@@ -1,5 +1,5 @@
 
-from typing import Optional, Set, Tuple
+from beartype.typing import Optional, Set, Tuple
 from PySide6 import QtGui
 from PySide6.QtCore import QEvent
 

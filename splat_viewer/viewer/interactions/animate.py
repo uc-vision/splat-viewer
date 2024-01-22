@@ -1,6 +1,6 @@
 
 import math
-from typing import Callable, List, Optional
+from beartype.typing import Callable, List, Optional
 from PySide6 import QtGui
 from PySide6.QtCore import Qt
 from beartype import beartype

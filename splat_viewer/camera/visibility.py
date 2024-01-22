@@ -1,5 +1,5 @@
 
-from typing import List
+from beartype.typing import List
 from beartype import beartype
 import numpy as np
 

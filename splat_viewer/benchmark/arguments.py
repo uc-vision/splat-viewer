@@ -1,7 +1,7 @@
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from beartype.typing import List, Optional
 from beartype import beartype
 
 import torch
