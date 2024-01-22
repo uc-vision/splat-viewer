@@ -124,7 +124,6 @@ def benchmark_model(model_path:Path, args:BenchmarkArgs):
 def benchmark_gaussians(gaussians:Gaussians, cameras: List[FOVCamera],
                     renderer, args:BenchmarkArgs):
 
-
   def n_cameras(n):
     return list(itertools.islice(itertools.cycle(cameras), n))
 
@@ -142,25 +141,32 @@ def benchmark_gaussians(gaussians:Gaussians, cameras: List[FOVCamera],
   num_cameras = len(render_cameras)
   print(f"Benchmark @ {len(render_cameras)} cameras:")
 
-  if args.profile or args.trace:
-    with profile(activities=[ProfilerActivity.CUDA], 
-                record_shapes=True, with_stack=True) as prof:
-      with record_function("model_inference"):
-        ellapsed = bench_renders(gaussians, renderer, render_cameras, profiler=prof, render_depth=args.depth)
-    result = prof.key_averages(group_by_stack_n=4).table(sort_by="self_cuda_time_total", 
-                                      row_limit=25, max_name_column_width=100)
-    
-    if args.trace:
-      print(f"Writing chrome trace file to {args.trace}")
-      prof.export_chrome_trace(args.trace)
+  torch.cuda.empty_cache()
 
-    if args.profile:
-      print(result)
+  try:
+    if args.profile or args.trace:
+      with profile(activities=[ProfilerActivity.CUDA], 
+                  record_shapes=True, with_stack=True) as prof:
+        with record_function("model_inference"):
+          ellapsed = bench_renders(gaussians, renderer, render_cameras, profiler=prof, render_depth=args.depth)
+      result = prof.key_averages(group_by_stack_n=4).table(sort_by="self_cuda_time_total", 
+                                        row_limit=25, max_name_column_width=100)
+      
+      if args.trace:
+        print(f"Writing chrome trace file to {args.trace}")
+        prof.export_chrome_trace(args.trace)
 
-  else:
-    ellapsed = bench_renders(gaussians, renderer, render_cameras, render_depth=args.depth)
-  print(f"{num_cameras} images in {ellapsed:.2f}s at {num_cameras / ellapsed:.2f} images/s")
+      if args.profile:
+        print(result)
 
+    else:
+      ellapsed = bench_renders(gaussians, renderer, render_cameras, render_depth=args.depth)
+    print(f"{num_cameras} images in {ellapsed:.2f}s at {num_cameras / ellapsed:.2f} images/s")
+  except torch.cuda.OutOfMemoryError:
+    print("Out of memory")
+    ellapsed = 0.0
+  
+  
   return dict(image_sizes=image_sizes, ellapsed=ellapsed, num_cameras=num_cameras, rate=num_cameras / ellapsed)
 
 
