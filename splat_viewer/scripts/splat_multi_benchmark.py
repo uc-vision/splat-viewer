@@ -65,7 +65,7 @@ def main():
           results[key] = { info['rate'] if info is not None else 0.0
                            for info in result_dict.values() }
           
-          print(results.loc[key])
+          print(results[key])
 
 
   index = pd.MultiIndex.from_tuples(
