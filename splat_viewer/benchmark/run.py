@@ -72,45 +72,6 @@ def load_workspace_with(model_path:Path, args:BenchmarkArgs):
   return replace(workspace, cameras=cameras), gaussians
 
 
-def tile_info(gaussians:Gaussians, camera:FOVCamera):
-  from splat_viewer.renderer.tile_mapping import tile_mapper, RasterConfig
-  from splat_viewer.renderer.perspective import to_camera_params
-  from splat_viewer.renderer.tile_mapping import map_to_tiles, tile_mapper
-  from splat_viewer.renderer.perspective import perspective
-
-  config = RasterConfig(tile_size=16, tight_culling=True)
-  camera_params = to_camera_params(camera, device=gaussians.device)
-
-  mask = perspective.frustum_culling(gaussians, camera_params, margin_pixels=50)
-  gaussians2d, depth = perspective.project_to_image(gaussians[mask], camera_params)
-    
-  overlap_to_point, tile_ranges = map_to_tiles(
-    gaussians2d, depth, camera_params.image_size, config)
-  
-  image_size = pad_to_tile(camera.image_size, config.tile_size)
-
-  mapper = tile_mapper.tile_mapper(config)
-  overlap_offsets, total_overlap = mapper.generate_tile_overlaps(
-    gaussians2d, image_size)
-
-  cum_overlap_counts = torch.cat([overlap_offsets.cpu(), torch.tensor([total_overlap])])
-
-  return dict(
-    max_overlap = torch.max(cum_overlap_counts[1:] - cum_overlap_counts[:-1]).item(),
-    num_tiles = (tile_ranges[:, 1] - tile_ranges[:, 0]).sum().item(),
-  )
-
-
-def model_info(model_path:Path, args:BenchmarkArgs):
-  workspace, gaussians = load_workspace_with(model_path, args)
-
-  info = [tile_info(gaussians, camera) for camera in workspace.cameras]
-
-  return dict(
-    num_points = gaussians.batch_size[0],
-  )
-
-
 
 def benchmark_model(model_path:Path, args:BenchmarkArgs):
   workspace, gaussians = load_workspace_with(model_path, args)
@@ -131,19 +92,19 @@ def benchmark_gaussians(gaussians:Gaussians, cameras: List[FOVCamera],
   print(f"Cameras: {len(cameras)}, Image sizes: {image_sizes}")
 
   bench_renders = bench_backward if args.backward else bench_forward
-
-
   warmup_size = 10
-  print(f"Warmup @ {warmup_size} cameras")
-  bench_renders(gaussians, renderer, n_cameras(warmup_size), render_depth=args.depth)
 
   render_cameras = cameras if args.n is None else n_cameras(args.n)
   num_cameras = len(render_cameras)
-  print(f"Benchmark @ {len(render_cameras)} cameras:")
 
   torch.cuda.empty_cache()
 
   try:
+    print(f"Warmup @ {warmup_size} cameras")
+    bench_renders(gaussians, renderer, n_cameras(warmup_size), render_depth=args.depth)
+
+    print(f"Benchmark @ {len(render_cameras)} cameras:")
+
     if args.profile or args.trace:
       with profile(activities=[ProfilerActivity.CUDA], 
                   record_shapes=True, with_stack=True) as prof:
