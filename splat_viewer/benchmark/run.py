@@ -128,7 +128,10 @@ def benchmark_gaussians(gaussians:Gaussians, cameras: List[FOVCamera],
     ellapsed = 0.0
   
   
-  return dict(image_sizes=image_sizes, ellapsed=ellapsed, num_cameras=num_cameras, rate=num_cameras / ellapsed)
+  return dict(image_sizes=image_sizes, 
+              ellapsed=ellapsed, 
+              num_cameras=num_cameras, 
+              rate=(num_cameras / ellapsed) if ellapsed > 0 else 0.0)
 
 
 
