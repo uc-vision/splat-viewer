@@ -77,16 +77,16 @@ def main():
           
 
 
-    index = pd.MultiIndex.from_tuples(
-      results.keys(), names=['impl', 'image_size', 'backward'])
+  index = pd.MultiIndex.from_tuples(
+    results.keys(), names=['impl', 'image_size', 'backward'])
 
-    df = pd.DataFrame(index=index, data=np.array(list(results.values())), columns=models)
+  df = pd.DataFrame(index=index, data=np.array(list(results.values())), columns=models)
 
-    print("Results:")
-    print(df)
+  print("Results:")
+  print(df)
 
-    df.to_csv(cmd_args.write_to)
-    print(f"Saved to {cmd_args.write_to}")
+  df.to_csv(cmd_args.write_to)
+  print(f"Saved to {cmd_args.write_to}")
 
     
 
