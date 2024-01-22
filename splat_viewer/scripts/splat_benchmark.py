@@ -20,7 +20,10 @@ def main():
  
   print("Model\t Rate(images/sec)")
   for model_path, info in summary.items():
-    print(f"{model_path}({info['num_cameras']})\t {info['rate']:.2f}")
+    if info is not None:
+      print(f"{model_path}({info['num_cameras']})\t {info['rate']:.2f}")
+    else:
+      print(f"{model_path}\t out of memory")
 
 if __name__ == "__main__":
   main()  

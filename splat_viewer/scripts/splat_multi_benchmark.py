@@ -5,23 +5,10 @@ import torch
 
 import taichi as ti
 from splat_viewer.benchmark.arguments import benchmark_args, make_benchmark_args
-from splat_viewer.benchmark.run import benchmark_model
+from splat_viewer.benchmark.run import benchmark_models
 from splat_viewer.renderer.arguments import RendererArgs, RendererImpl
 
-def benchmark_models(args):
-  summary = {}
 
-  for model_path in args.model_paths:
-    summary[model_path] = benchmark_model(model_path, args)
- 
-  print("Model\t Rate(images/sec)")
-  for model_path, info in summary.items():
-    print(f"{model_path}({info['num_cameras']})\t {info['rate']:.2f}")
-
-  models = list(summary.keys())
-  rates = [info['rate'] for info in summary.values()] 
-
-  return models, rates
 
 
 def main():
@@ -73,8 +60,10 @@ def main():
           print(f"{impl_name}: image_size={image_size} {'forward+backward' if backward else 'forward'}")
           print("------------------------------------")
 
-          models, results[key] = benchmark_models(run_args)
-          
+          results = benchmark_models(run_args)
+          models = list(results[key].keys())
+          results[key] = { info['rate'] if info is not None else 0.0
+                           for info in results[key].values() }
 
 
   index = pd.MultiIndex.from_tuples(

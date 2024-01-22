@@ -1,5 +1,6 @@
 
 from dataclasses import replace
+import gc
 import itertools
 from pathlib import Path
 import time
@@ -71,16 +72,27 @@ def load_workspace_with(model_path:Path, args:BenchmarkArgs):
 
   return replace(workspace, cameras=cameras), gaussians
 
-
+def benchmark_models(args:BenchmarkArgs):
+  return {model_path:benchmark_model(model_path, args) 
+          for model_path in args.model_paths}
 
 def benchmark_model(model_path:Path, args:BenchmarkArgs):
-  workspace, gaussians = load_workspace_with(model_path, args)
-  renderer = renderer_from_args(args.renderer)
+  try:
+    gc.collect()
+    torch.cuda.empty_cache()
 
-  print("")
-  print(f"{model_path}: benchmarking with {gaussians.batch_size[0]} points")
+    workspace, gaussians = load_workspace_with(model_path, args)
+    renderer = renderer_from_args(args.renderer)
 
-  return benchmark_gaussians(gaussians, workspace.cameras, renderer, args)
+    print("")
+    print(f"{model_path}: benchmarking with {gaussians.batch_size[0]} points")
+
+    return benchmark_gaussians(gaussians, workspace.cameras, renderer, args)
+  
+  except torch.cuda.OutOfMemoryError:
+    print("Out of memory")
+    return None
+
 
 def benchmark_gaussians(gaussians:Gaussians, cameras: List[FOVCamera],
                     renderer, args:BenchmarkArgs):
@@ -97,42 +109,35 @@ def benchmark_gaussians(gaussians:Gaussians, cameras: List[FOVCamera],
   render_cameras = cameras if args.n is None else n_cameras(args.n)
   num_cameras = len(render_cameras)
 
-  torch.cuda.empty_cache()
+  print(f"Warmup @ {warmup_size} cameras")
+  bench_renders(gaussians, renderer, n_cameras(warmup_size), render_depth=args.depth)
 
-  try:
-    print(f"Warmup @ {warmup_size} cameras")
-    bench_renders(gaussians, renderer, n_cameras(warmup_size), render_depth=args.depth)
+  print(f"Benchmark @ {len(render_cameras)} cameras:")
 
-    print(f"Benchmark @ {len(render_cameras)} cameras:")
+  if args.profile or args.trace:
+    with profile(activities=[ProfilerActivity.CUDA], 
+                record_shapes=True, with_stack=True) as prof:
+      with record_function("model_inference"):
+        ellapsed = bench_renders(gaussians, renderer, render_cameras, profiler=prof, render_depth=args.depth)
+    result = prof.key_averages(group_by_stack_n=4).table(sort_by="self_cuda_time_total", 
+                                      row_limit=25, max_name_column_width=100)
+    
+    if args.trace:
+      print(f"Writing chrome trace file to {args.trace}")
+      prof.export_chrome_trace(args.trace)
 
-    if args.profile or args.trace:
-      with profile(activities=[ProfilerActivity.CUDA], 
-                  record_shapes=True, with_stack=True) as prof:
-        with record_function("model_inference"):
-          ellapsed = bench_renders(gaussians, renderer, render_cameras, profiler=prof, render_depth=args.depth)
-      result = prof.key_averages(group_by_stack_n=4).table(sort_by="self_cuda_time_total", 
-                                        row_limit=25, max_name_column_width=100)
-      
-      if args.trace:
-        print(f"Writing chrome trace file to {args.trace}")
-        prof.export_chrome_trace(args.trace)
+    if args.profile:
+      print(result)
 
-      if args.profile:
-        print(result)
+  else:
+    ellapsed = bench_renders(gaussians, renderer, render_cameras, render_depth=args.depth)
+  print(f"{num_cameras} images in {ellapsed:.2f}s at {num_cameras / ellapsed:.2f} images/s")
 
-    else:
-      ellapsed = bench_renders(gaussians, renderer, render_cameras, render_depth=args.depth)
-    print(f"{num_cameras} images in {ellapsed:.2f}s at {num_cameras / ellapsed:.2f} images/s")
-  except torch.cuda.OutOfMemoryError:
-    print("Out of memory")
-    ellapsed = 0.0
-  
-  
+
   return dict(image_sizes=image_sizes, 
               ellapsed=ellapsed, 
               num_cameras=num_cameras, 
               rate=(num_cameras / ellapsed) if ellapsed > 0 else 0.0)
-
 
 
 
