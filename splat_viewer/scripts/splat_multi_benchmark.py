@@ -62,8 +62,8 @@ def main():
 
           result_dict = benchmark_models(run_args)
           models = list(result_dict.keys())
-          results[key] = { info['rate'] if info is not None else 0.0
-                           for info in result_dict.values() }
+          results[key] = [ info['rate'] if info is not None else 0.0
+                           for info in result_dict.values() ]
           
           print(results[key])
 
