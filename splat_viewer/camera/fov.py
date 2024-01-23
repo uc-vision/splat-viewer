@@ -33,7 +33,14 @@ class FOVCamera:
   near:float  = 0.1
   far :float  = 50.0
 
+  @staticmethod
+  def from_json(json_dict) -> 'FOVCamera':
+    return from_json(json_dict)
   
+  def to_json(self):
+    return to_json(self)
+
+
   @property
   def aspect(self):
     width, height = self.image_size
@@ -254,6 +261,23 @@ def from_json(camera_info) -> FOVCamera:
     principal_point=np.array([cx, cy]),
     image_name=camera_info['img_name']
   )
+
+def to_json(camera:FOVCamera):
+  cx, cy = camera.principal_point
+  fx, fy = camera.focal_length
+  w, h = camera.image_size
+  return {
+    'id': camera.image_name,
+    'img_name': camera.image_name,
+    'width': int(w),
+    'height': int(h),
+    'fx': fx,
+    'fy': fy,
+    'cx': cx,
+    'cy': cy,
+    'position': camera.position.tolist(),
+    'rotation': camera.rotation.tolist(),
+  }
 
 
 
