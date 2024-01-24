@@ -54,6 +54,12 @@ def to_plydata(gaussians:Gaussians) -> plyfile.PlyData:
   for i in range(sh_rest.shape[1]):
     vertex['f_rest_' + str(i)] = sh_rest[:, i].numpy()
 
+  if gaussians.foreground is not None:
+    vertex['foreground'] = gaussians.foreground[:, 0].numpy()
+
+  if gaussians.label is not None:
+    vertex['label'] = gaussians.label[:, 0].numpy()
+
   el = plyfile.PlyElement.describe(vertex, 'vertex')
   return plyfile.PlyData([el])
 
