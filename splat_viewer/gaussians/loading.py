@@ -11,6 +11,8 @@ from .data_types import Gaussians
 
 
 def to_plydata(gaussians:Gaussians) -> plyfile.PlyData:
+  gaussians = gaussians.to('cpu')
+
   num_sh = gaussians.sh_feature.shape[2] *  gaussians.sh_feature.shape[1]
 
   dtype = [
@@ -26,7 +28,6 @@ def to_plydata(gaussians:Gaussians) -> plyfile.PlyData:
 
   if gaussians.label is not None:
     dtype.append(('label', 'i16'))
-
 
   vertex = np.zeros(gaussians.batch_size[0], dtype=dtype )
 
@@ -58,15 +59,16 @@ def to_plydata(gaussians:Gaussians) -> plyfile.PlyData:
 
 
 def from_plydata(plydata:plyfile.PlyData) -> Gaussians:
+  
+  vertex = plydata['vertex']
+
   def get_keys(ks):
-    values = [torch.from_numpy(plydata['vertex'][k]) for k in ks]
+    values = [torch.from_numpy(vertex[k].copy()) for k in ks]
     return torch.stack(values, dim=-1)
 
-  vertex = plydata['vertex']
+  
   positions = torch.stack(
-    [ torch.from_numpy(vertex['x']), 
-      torch.from_numpy(vertex['y']), 
-      torch.from_numpy(vertex['z'])], dim=-1)
+    [ torch.from_numpy(vertex[i].copy()) for i in ['x', 'y', 'z']], dim=-1)
 
   attrs = sorted(plydata['vertex'].data.dtype.names)
   sh_attrs = [k for k in attrs if k.startswith('f_rest_') or k.startswith('f_dc_')]
