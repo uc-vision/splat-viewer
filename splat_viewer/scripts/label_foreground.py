@@ -7,19 +7,19 @@ import torch
 from splat_viewer.camera.fov import FOVCamera
 from splat_viewer.camera.visibility import visibility
 
-from splat_viewer.gaussians.loading import  read_gaussians, to_pcd, write_gaussians
+from splat_viewer.gaussians.loading import  read_gaussians, write_gaussians
 from splat_viewer.gaussians.workspace import load_workspace
 
 
 def crop_model(model, cameras:List[FOVCamera], args):
-  is_near, is_visible = visibility(cameras, model.positions, near = args.near, far = args.far)
+  is_near, is_visible = visibility(cameras, model.position, near = args.near, far = args.far)
 
   min_views = max(1, len(cameras) * args.min_percent / 100)
   n = (is_visible > 0).sum(dtype=torch.int32)
   n_near = (is_near >= min_views).sum(dtype=torch.int32)
 
-  print(f"Cropped model from {model.batch_shape} to {n} visible points, {n_near} near (at least {min_views} views)")
-  model = replace(model, foreground=(is_near >= min_views).reshape(-1, 1))
+  print(f"Cropped model from {model.batch_size[0]} to {n} visible points, {n_near} near (at least {min_views} views)")
+  model = model.replace(foreground=(is_near >= min_views).reshape(-1, 1))
 
   model = model[is_visible > 0]
   return model
@@ -37,11 +37,6 @@ def main():
   parser.add_argument("--min_percent", type=float, default=0, help="Minimum percent of views to be included")
   parser.add_argument("--device", default='cuda:0')
 
-  parser.add_argument("--statistical_outliers", type=float, default=None)
-  parser.add_argument("--radius_outliers", type=float, default=None)
-  parser.add_argument("--knn", type=int, default=100)
-
-  
   parser.add_argument("--write", action="store_true", help="Write the cropped model to a file")
   parser.add_argument("--show", action="store_true")
 
