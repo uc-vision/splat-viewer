@@ -1,6 +1,6 @@
 [project]
 name = "splat-viewer"  
-version = "0.6.4"  
+version = "0.6.5"  
 description = "A viewer for gaussian-splatting reconstructions"  
 readme = "README.md" 
 requires-python = ">=3.10"
@@ -16,7 +16,7 @@ dependencies = [
   "taichi-splatting >= 0.6.0",
   "tqdm", 
   "tensordict",
-  "open3d >= 0.16",
+  "plyfile",
   "pyside6",
   "natsort",
   "opencv_python",
@@ -41,8 +41,8 @@ splat-benchmark = "splat_viewer.scripts.splat_benchmark:main"
 splat-multi-benchmark = "splat_viewer.scripts.splat_multi_benchmark:main"
 
 debug-tiles = "splat_viewer.scripts.debug_tiles:main"
-crop_gaussians = "splat_viewer.scripts.crop_gaussians:main"
-export_workspace = "splat_viewer.scripts.export_workspace:main"
+label-foreground = "splat_viewer.scripts.label_foreground:main"
+export-workspace = "splat_viewer.scripts.export_workspace:main"
 
 
 [tool.ruff]

@@ -31,10 +31,10 @@ class Gaussians():
   rotation      : torch.Tensor # 4  - quaternion wxyz
   alpha_logit   : torch.Tensor # 1  - alpha = sigmoid(alpha_logit)
   
-  sh_feature      :  torch.Tensor # (any rgb (3), spherical harmonics (3x16) etc)
+  sh_feature      :  torch.Tensor # (spherical harmonics (3, deg + 1)**2))
   
-  foreground : Optional[torch.Tensor] # 1 (bool) 
-  label      : Optional[torch.Tensor] # 1 (int)
+  foreground : Optional[torch.Tensor] = None # 1 (bool) 
+  label      : Optional[torch.Tensor] = None # 1 (int)
 
   def __post_init__(self):
     assert self.position.shape[1] == 3, f"Expected shape (N, 3), got {self.position.shape}"
@@ -63,6 +63,9 @@ class Gaussians():
 
   def alpha(self):
     return torch.sigmoid(self.alpha_logit)
+  
+  def split_sh(self):
+    return self.sh_feature[:, :, 0], self.sh_feature[:, :, 1:]
   
   def sh_degree(self):
     return check_sh_degree(self.sh_feature)

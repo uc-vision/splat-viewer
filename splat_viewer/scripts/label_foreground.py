@@ -63,26 +63,6 @@ def main():
     model = model.to(args.device)
     model = crop_model(model, workspace.cameras, args)
     
-    idx_crop = torch.nonzero(model.foreground.squeeze() > 0).squeeze()
-
-    def filtered(mask):
-      mask = torch.from_numpy(mask.numpy()).to(model.device)
-      model.foreground[idx_crop[~mask], :] = False
-
-    if any([args.radius_outliers, args.statistical_outliers]):
-      pcd = to_pcd(model[idx_crop].cpu())
-
-      if args.statistical_outliers is not None:
-        _, keep = pcd.remove_statistical_outliers(nb_neighbors=args.knn, std_ratio=args.statistical_outliers)
-        filtered(keep)
-
-      if args.radius_outliers is not None:
-        _, keep = pcd.remove_radius_outliers(nb_points=args.knn, search_radius=args.radius_outliers)
-        filtered(keep)
-
-
-      num_removed = idx_crop.shape[0] - (model.foreground > 0).sum()
-      print(f"Found {num_removed} outliers")
 
     if args.write:    
       write_gaussians(model_file, model)

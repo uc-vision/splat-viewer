@@ -16,9 +16,17 @@ from splat_viewer.viewer.scene_camera import to_pyrender_camera
 from .mesh import make_camera_markers
 from .settings import Settings, ViewMode
 
+import plyfile
 
+def plyfile_to_mesh(plydata:plyfile.PlyData):
+  vertex = plydata['vertex']
+  positions = torch.stack(
+    [ torch.from_numpy(vertex[i].copy()) for i in ['x', 'y', 'z']], dim=-1)
 
-
+  colors = torch.stack(
+    [ torch.from_numpy(vertex[i]) for i in ['red', 'green', 'blue']], dim=-1)
+  
+  return pyrender.Mesh.from_points(positions, colors)
 
 
 def get_cv_colormap(cmap):
@@ -30,12 +38,10 @@ def get_cv_colormap(cmap):
 class PyrenderScene:
   
   def __init__(self,  workspace:Workspace):
-    self.initial = workspace.load_initial_points()
-
+    self.seed_points = workspace.load_seed_points()
     self.initial_scene = pyrender.Scene()
 
-    self.points = pyrender.Mesh.from_points(
-      self.initial.point['positions'].numpy(), self.initial.point['colors'].numpy())
+    self.points = plyfile_to_mesh(self.seed_points)
     self.initial_node = self.initial_scene.add(self.points, pose=np.eye(4))
 
     self.initial_scene.ambient_light = np.array([1.0, 1.0, 1.0, 1.0])

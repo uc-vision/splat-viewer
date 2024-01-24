@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QApplication
 
 from splat_viewer.gaussians.workspace import Workspace, load_workspace
 from splat_viewer.gaussians import Gaussians
-from splat_viewer.renderer.arguments import add_render_arguments, renderer_from_args
+from splat_viewer.renderer.arguments import add_render_arguments, make_renderer_args, renderer_from_args
 from splat_viewer.renderer.taichi_splatting import GaussianRenderer
 
 from splat_viewer.viewer.scene_widget import SceneWidget, Settings
@@ -80,7 +80,7 @@ def main():
 
     scene_widget = SceneWidget(
        settings=Settings(device=parsed_args.device),
-       renderer = renderer_from_args(parsed_args)
+       renderer = renderer_from_args(make_renderer_args(parsed_args))
     )
     
     scene_widget.load_workspace(workspace, gaussians)

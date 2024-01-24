@@ -1,8 +1,7 @@
 
 from pathlib import Path
 import tempfile
-import open3d as o3d
-import open3d.core as o3c
+import plyfile
 
 import numpy as np
 import torch
@@ -11,68 +10,71 @@ import torch.nn.functional as F
 from .data_types import Gaussians
 
 
-def torch_to_o3d(tensor:torch.Tensor) -> o3d.core.Tensor:
-  return o3d.core.Tensor.from_dlpack(torch.utils.dlpack.to_dlpack(tensor))
+def to_plydata(gaussians:Gaussians) -> plyfile.PlyData:
+  num_sh = gaussians.sh_feature.shape[2] *  gaussians.sh_feature.shape[1]
 
-def o3d_to_torch(tensor:o3c.Tensor) -> torch.Tensor:
-  return torch.from_dlpack(o3d.core.Tensor.to_dlpack(tensor))
+  dtype = [
+    ('x', 'f4'), ('y', 'f4'), ('z', 'f4'),
+    ('opacity', 'f4'),
+    ('scale_0', 'f4'), ('scale_1', 'f4'), ('scale_2', 'f4'),
+    ('rot_0', 'f4'), ('rot_1', 'f4'), ('rot_2', 'f4'), ('rot_3', 'f4'),
+    ('f_dc_0', 'f4'), ('f_dc_1', 'f4'), ('f_dc_2', 'f4'),
+  ] + [('f_rest_' + str(i), 'f4') for i in range(num_sh - 3)]
+
+  if gaussians.foreground is not None:
+    dtype.append(('foreground', 'u1'))
+
+  if gaussians.label is not None:
+    dtype.append(('label', 'i16'))
 
 
+  vertex = np.zeros(gaussians.batch_size[0], dtype=dtype )
 
-def to_pcd(gaussians:Gaussians) -> o3d.t.geometry.PointCloud:
-  pos = torch_to_o3d(gaussians.positions)
+  for i, name in enumerate(['x', 'y', 'z']):
+    vertex[name] = gaussians.position[:, i].numpy()
 
-  pcd = o3d.t.geometry.PointCloud(pos.device)
-  pcd.point['positions'] = pos
-  pcd.point['opacity'] = torch_to_o3d(gaussians.alpha_logit)
+  for i in range(3):
+    vertex['scale_' + str(i)] = gaussians.log_scaling[:, i].numpy()
+
+  rotation = torch.roll(F.normalize(gaussians.rotation), 1, dims=(1,))
+  for i in range(4):
+    vertex['rot_' + str(i)] = rotation[:, i].numpy()
+
+  vertex['opacity'] = gaussians.alpha_logit[:, 0].numpy()
 
   sh_dc, sh_rest = gaussians.split_sh()
 
   sh_dc = sh_dc.view(-1, 3)
-  sh_rest = sh_rest.permute(0, 2, 1).reshape(sh_rest.shape[0], sh_rest.shape[1] * sh_rest.shape[2])
+  sh_rest = sh_rest.reshape(sh_rest.shape[0], sh_rest.shape[1] * sh_rest.shape[2])
 
   for i in range(3):
-    pcd.point[f'f_dc_{i}'] = torch_to_o3d(sh_dc[:, i:i+1])
+    vertex['f_dc_' + str(i)] = sh_dc[:, i].numpy()
 
-  for i in range(sh_rest.shape[-1]):
-    pcd.point[f'f_rest_{i}'] = torch_to_o3d(sh_rest[:, :, i:i+1])
-  
+  for i in range(sh_rest.shape[1]):
+    vertex['f_rest_' + str(i)] = sh_rest[:, i].numpy()
 
-  for i in range(3):
-    pcd.point[f'scale_{i}'] = torch_to_o3d(gaussians.log_scaling[:, i:i+1])
-
-
-  # convert back to wxyz quaternion
-  rotation = torch.roll(gaussians.rotation, 1, dims=(1,))
-
-  for i in range(4):
-    pcd.point[f'rot_{i}'] = torch_to_o3d(rotation[:, i:i+1])
-
-  if gaussians.foreground is not None:
-    pcd.point['foreground'] = torch_to_o3d(gaussians.foreground.to(torch.int32))
-
-  if gaussians.label is not None:
-    pcd.point['label'] = torch_to_o3d(gaussians.label)
-  
-
-  return pcd
+  el = plyfile.PlyElement.describe(vertex, 'vertex')
+  return plyfile.PlyData([el])
 
 
-
-def from_pcd(pcd:o3d.t.geometry.PointCloud) -> Gaussians:
+def from_plydata(plydata:plyfile.PlyData) -> Gaussians:
   def get_keys(ks):
-    values = [o3d_to_torch(pcd.point[k]) for k in ks]
-    return torch.concat(values, dim=-1)
+    values = [torch.from_numpy(plydata['vertex'][k]) for k in ks]
+    return torch.stack(values, dim=-1)
 
-  positions = o3d_to_torch(pcd.point['positions'])
+  vertex = plydata['vertex']
+  positions = torch.stack(
+    [ torch.from_numpy(vertex['x']), 
+      torch.from_numpy(vertex['y']), 
+      torch.from_numpy(vertex['z'])], dim=-1)
 
-  attrs = sorted(dir(pcd.point))
+  attrs = sorted(plydata['vertex'].data.dtype.names)
   sh_attrs = [k for k in attrs if k.startswith('f_rest_') or k.startswith('f_dc_')]
   
   n_sh = len(sh_attrs) // 3
   deg = int(np.sqrt(n_sh))
 
-  assert deg * deg == n_sh, f"SH feature count must be (3x) square, got {len(sh_attrs)}"
+  assert deg * deg == n_sh, f"SH feature count must be square ({deg} * {deg} != {n_sh}), got {len(sh_attrs)}"
   log_scaling = get_keys([f'scale_{k}' for k in range(3)])
 
 
@@ -90,11 +92,10 @@ def from_pcd(pcd:o3d.t.geometry.PointCloud) -> Gaussians:
 
   
   foreground = (get_keys(['foreground']).to(torch.bool) 
-    if 'foreground' in pcd.point else None)
+    if 'foreground' in plydata['vertex'].data.dtype.names else None)
   
-  label = get_keys(['label']) if 'label' in pcd.point else None
+  label = get_keys(['label']) if 'label' in plydata['vertex'].data.dtype.names else None
   
-
   return Gaussians(
     position = positions, 
     rotation = rotation,
@@ -108,21 +109,21 @@ def from_pcd(pcd:o3d.t.geometry.PointCloud) -> Gaussians:
     batch_size = (positions.shape[0],)
   )
 
-
 def write_gaussians(filename:Path | str, gaussians:Gaussians):
   filename = Path(filename)
 
-  pcd = to_pcd(gaussians)
-  o3d.t.io.write_point_cloud(str(filename), pcd)
+  plydata = to_plydata(gaussians)
+  plydata.write(str(filename))
+
+
 
 def read_gaussians(filename:Path | str) -> Gaussians:
   filename = Path(filename) 
 
-  pcd:o3d.t.geometry.PointCloud = o3d.t.io.read_point_cloud(str(filename))
-  if 'positions' not in pcd.point:
-    raise ValueError(f"Could not load point cloud from {filename}")
+  plydata = plyfile.PlyData.read(str(filename))
+  return from_plydata(plydata)
 
-  return from_pcd(pcd)
+
   
 
 def random_gaussians(n:int, sh_degree:int):
@@ -133,8 +134,9 @@ def random_gaussians(n:int, sh_degree:int):
     rotation = F.normalize(torch.randn(n, 4), dim=1),
     alpha_logit = torch.randn(n, 1),
     log_scaling = torch.randn(n, 3) * 4,
+    sh_feature = torch.randn(n, 3, (sh_degree + 1)**2),
 
-    sh_feature = torch.randn(n, (sh_degree + 1)**2, 3),
+    batch_size = (n,)
   )
 
 def test_read_write():
@@ -148,7 +150,7 @@ def test_read_write():
 
     assert torch.allclose(g.position, g2.position)
     assert torch.allclose(g.rotation, g2.rotation)
-    assert torch.allclose(g.alpha, g2.alpha)
+    assert torch.allclose(g.alpha(), g2.alpha())
     assert torch.allclose(g.log_scaling, g2.log_scaling)
     assert torch.allclose(g.sh_feature, g2.sh_feature)
 

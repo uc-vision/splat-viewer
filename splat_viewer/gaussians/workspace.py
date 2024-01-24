@@ -12,7 +12,7 @@ from splat_viewer.camera.fov import FOVCamera, load_camera_json
 from .loading import read_gaussians
 from .data_types import Gaussians
 
-import open3d as o3d 
+import plyfile 
 
 @beartype
 @dataclass
@@ -52,8 +52,8 @@ class Workspace:
   def load_model(self, model:str) -> Gaussians:
     return read_gaussians(self.model_filename(model))
   
-  def load_initial_points(self) -> o3d.t.geometry.PointCloud:
-    return o3d.t.io.read_point_cloud(str(self.model_path / "input.ply"))
+  def load_seed_points(self) -> plyfile.PlyData:
+    return plyfile.PlyData.read(str(self.model_path / "input.ply"))
   
 
 def find_clouds(p:Path):
