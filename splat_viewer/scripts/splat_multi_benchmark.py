@@ -36,12 +36,8 @@ def main():
         )
 
     impls['diff_gaussian'] = RendererArgs(impl=RendererImpl.DiffGaussian)
-
-    if image_size <= 2048:
-      impls['taichi_3dgs'] = RendererArgs(impl = RendererImpl.Taichi3DGS)
-
-    if image_size >= 2048:
-      impls['taichi_32'] = RendererArgs(
+    impls['taichi_3dgs'] = RendererArgs(impl = RendererImpl.Taichi3DGS)
+    impls['taichi_32'] = RendererArgs(
           tile_size=32,
           depth16=True,
           impl=RendererImpl.TaichiSplatting
