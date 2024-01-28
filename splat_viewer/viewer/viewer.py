@@ -23,8 +23,10 @@ def show_workspace(workspace:Workspace, gaussians:Gaussians = None):
   from splat_viewer.viewer.viewer import sigint_handler
   signal.signal(signal.SIGINT, sigint_handler)
 
-  
-  app = QtWidgets.QApplication(["viewer"])
+  app = QtWidgets.QApplication.instance()
+  if app is None:
+    app = QtWidgets.QApplication(["viewer"])
+    
   widget = SceneWidget(renderer = GaussianRenderer())
 
   if gaussians is None:

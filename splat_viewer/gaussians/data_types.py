@@ -64,6 +64,9 @@ class Gaussians():
   def alpha(self):
     return torch.sigmoid(self.alpha_logit)
   
+  def mul_alpha(self, factor) -> 'Gaussians':
+    return self.replace(alpha_logit=inverse_sigmoid(self.alpha() * factor))
+  
   def split_sh(self):
     return self.sh_feature[:, :, 0], self.sh_feature[:, :, 1:]
   
@@ -109,3 +112,6 @@ class Gaussians():
     return self[indices]
     
 
+
+def inverse_sigmoid(x, eps=1e-6):
+  return -torch.log((1 / (x + eps)) - 1)
