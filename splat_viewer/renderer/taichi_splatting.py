@@ -1,5 +1,6 @@
 
 from dataclasses import dataclass, replace
+from typing import Tuple
 from beartype import beartype
 import torch
 from splat_viewer.camera.fov import FOVCamera
@@ -40,6 +41,7 @@ class GaussianRenderer:
     tile_size : int = 16
     tight_culling : bool = True
     use_depth16 : bool = False
+    pixel_stride : Tuple[int, int] = (2, 2)
 
   def __init__(self, **kwargs):
     self.config = GaussianRenderer.Config(**kwargs)
@@ -64,10 +66,12 @@ class GaussianRenderer:
   @beartype
   def render(self, inputs:PackedGaussians, camera:FOVCamera, render_depth:bool = True):
     device = inputs.gaussians.device
+    
 
     config = renderer.RasterConfig(
       tile_size=self.config.tile_size,
       tight_culling=self.config.tight_culling,
+      pixel_stride=self.config.pixel_stride,
     )
 
     
