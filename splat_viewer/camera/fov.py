@@ -31,7 +31,7 @@ class FOVCamera:
   principal_point : np.ndarray = field(default_factory=lambda: np.array([0., 0.]))
 
   near:float  = 0.1
-  far :float  = 50.0
+  far :float  = 1000.0
 
   @staticmethod
   def from_json(json_dict) -> 'FOVCamera':
