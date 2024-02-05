@@ -84,6 +84,8 @@ def benchmark_model(model_path:Path, args:BenchmarkArgs):
     workspace, gaussians = load_workspace_with(model_path, args)
     renderer = renderer_from_args(args.renderer)
 
+    print(renderer)
+
     print("")
     print(f"{model_path}: benchmarking with {gaussians.batch_size[0]} points")
 

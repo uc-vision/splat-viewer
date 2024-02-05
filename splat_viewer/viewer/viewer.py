@@ -80,9 +80,11 @@ def main():
 
     window = QtWidgets.QMainWindow()
 
+    renderer = renderer_from_args(make_renderer_args(parsed_args))
+    print(renderer)
     scene_widget = SceneWidget(
        settings=Settings(device=parsed_args.device),
-       renderer = renderer_from_args(make_renderer_args(parsed_args))
+       renderer = renderer
     )
     
     scene_widget.load_workspace(workspace, gaussians)
