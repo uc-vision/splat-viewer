@@ -293,7 +293,7 @@ class SceneWidget(QtWidgets.QWidget):
 
     self.view_image = np.ascontiguousarray(
       self.workspace_renderer.render(camera, self.settings))
-    
+        
     self.dirty = False
     return self.view_image
 
@@ -304,9 +304,13 @@ class SceneWidget(QtWidgets.QWidget):
       if dirty:
         self.render()
 
-      painter.drawImage(0, 0, QtGui.QImage(self.view_image, 
-                  self.view_image.shape[1], self.view_image.shape[0],  
-                  QtGui.QImage.Format_RGB888))
+      image = QtGui.QImage(self.view_image.data, 
+                  self.view_image.shape[1], self.view_image.shape[0],
+                  self.view_image.strides[0],  
+                  QtGui.QImage.Format_RGB888)
+      
+
+      painter.drawImage(0, 0, image)
       
             
   def snapshot_file(self):

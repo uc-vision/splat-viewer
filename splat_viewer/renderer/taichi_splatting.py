@@ -74,7 +74,7 @@ class GaussianRenderer:
       pixel_stride=self.config.pixel_stride,
     )
 
-    
+      
     rendering = renderer.render_gaussians(
       inputs.gaussians, inputs.features,
       to_camera_params(camera, device),
