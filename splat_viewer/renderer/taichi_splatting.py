@@ -76,9 +76,10 @@ class GaussianRenderer:
 
       
     rendering = renderer.render_gaussians(
-      inputs.gaussians, inputs.features,
-      to_camera_params(camera, device),
-      config, 
+      packed_gaussians=inputs.gaussians, 
+      features=inputs.features,
+      camera_params=to_camera_params(camera, device),
+      config=config, 
       use_sh=True, 
       use_depth16=self.config.use_depth16,
       render_depth=render_depth)

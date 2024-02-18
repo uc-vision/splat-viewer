@@ -9,6 +9,8 @@ from .sh_utils import check_sh_degree, num_sh_features, rgb_to_sh, sh_to_rgb
 from dataclasses import dataclass
 from splat_viewer.camera.fov import FOVCamera
 
+from taichi_splatting import Gaussians3D
+
 
 
 @dataclass
@@ -57,6 +59,16 @@ class Gaussians():
     
   def packed(self):
     return torch.cat([self.position, self.log_scaling, self.rotation, self.alpha_logit], dim=-1)
+  
+  def to_gaussians3d(self):
+    return Gaussians3D(
+      position=self.position,
+      log_scaling=self.log_scaling,
+      rotation=self.rotation,
+      alpha_logit=self.alpha_logit,
+      feature=self.sh_feature,
+      batch_size=self.batch_size
+    )
 
   def scale(self):
     return torch.exp(self.log_scaling)

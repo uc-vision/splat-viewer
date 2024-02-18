@@ -2,6 +2,7 @@ from functools import cached_property
 from pathlib import Path
 import re
 from beartype import beartype
+from beartype.typing import Optional
 from natsort import natsorted
 from dataclasses import dataclass
 
@@ -21,6 +22,10 @@ class Workspace:
 
   cloud_files : dict[str, Path]
   cameras:list[FOVCamera]
+
+  @staticmethod
+  def load(model_path:Path | str) -> 'Workspace':
+    return load_workspace(model_path)
 
   @cached_property
   def camera_extent(self):
@@ -49,7 +54,9 @@ class Workspace:
 
     return self.cloud_files[model]      
 
-  def load_model(self, model:str) -> Gaussians:
+  def load_model(self, model:Optional[str]=None) -> Gaussians:
+    if model is None:
+      model = self.latest_iteration()
     return read_gaussians(self.model_filename(model))
   
   def load_seed_points(self) -> plyfile.PlyData:
