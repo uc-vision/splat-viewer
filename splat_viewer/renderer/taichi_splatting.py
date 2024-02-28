@@ -5,7 +5,7 @@ from beartype import beartype
 import torch
 from splat_viewer.camera.fov import FOVCamera
 
-from taichi_splatting import renderer
+from taichi_splatting import Gaussians3D, renderer
 from taichi_splatting.perspective import CameraParams
 
 from splat_viewer.gaussians.data_types import Gaussians, Rendering
@@ -25,15 +25,7 @@ def to_camera_params(camera:FOVCamera, device=torch.device("cuda:0")):
   return params.to(device=device, dtype=torch.float32)
     
 
-@dataclass
-class PackedGaussians:
-  gaussians : torch.Tensor
-  features : torch.Tensor
 
-  def requires_grad_(self, requires_grad):
-    self.gaussians.requires_grad_(requires_grad)
-    self.features.requires_grad_(requires_grad)
-    return self
 
 class GaussianRenderer:
   @dataclass 
@@ -48,36 +40,24 @@ class GaussianRenderer:
 
   @beartype
   def pack_inputs(self, gaussians:Gaussians, requires_grad=False):
-      packed = torch.cat(
-        [gaussians.position, 
-         gaussians.log_scaling, 
-         gaussians.rotation, 
-         gaussians.alpha_logit], 
-         dim=-1)
-      
-      return PackedGaussians(
-        gaussians=packed, 
-        features=gaussians.sh_feature).requires_grad_(requires_grad)
+      return gaussians.to_gaussians3d().requires_grad_(requires_grad)
 
   
   def update_settings(self, **kwargs):
     self.config = replace(self.config, **kwargs)
 
   @beartype
-  def render(self, inputs:PackedGaussians, camera:FOVCamera, render_depth:bool = True):
-    device = inputs.gaussians.device
+  def render(self, inputs:Gaussians3D, camera:FOVCamera, render_depth:bool = True):
+    device = inputs.position.device
     
-
     config = renderer.RasterConfig(
       tile_size=self.config.tile_size,
       tight_culling=self.config.tight_culling,
       pixel_stride=self.config.pixel_stride,
     )
-
       
     rendering = renderer.render_gaussians(
-      packed_gaussians=inputs.gaussians, 
-      features=inputs.features,
+      gaussians=inputs, 
       camera_params=to_camera_params(camera, device),
       config=config, 
       use_sh=True, 
