@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from splat_viewer.camera.fov import FOVCamera
 
 from taichi_splatting import Gaussians3D
+import roma
 
 
 
@@ -70,6 +71,13 @@ class Gaussians():
       batch_size=self.batch_size
     )
 
+  def crop_foreground(self):
+    if self.foreground is None:
+      return self
+    else:
+      return self[self.foreground[:, 0]]
+
+
   def scale(self):
     return torch.exp(self.log_scaling)
 
@@ -93,6 +101,10 @@ class Gaussians():
   def get_colors(self):
     return sh_to_rgb(self.sh_feature[:, :, 0])
   
+  def get_rotation_matrix(self):
+    return roma.unitquat_to_rotmat(self.rotation)
+  
+
 
   def with_colors(self, colors):
     sh_feature = self.sh_feature.clone()
@@ -112,6 +124,7 @@ class Gaussians():
       
       return self.replace(sh_feature = torch.cat(
         [self.sh_feature, extra_features], dim=2))
+    
     
   def replace(self, **kwargs):
     return replace(self, **kwargs, batch_size=self.batch_size)
