@@ -8,6 +8,7 @@ class ViewMode(Enum):
   Depth = 1
   Points = 2
   Hidden = 3
+  DepthVar = 4
 
 @dataclass(frozen=True)
 class Show:

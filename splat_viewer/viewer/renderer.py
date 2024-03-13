@@ -135,7 +135,7 @@ class WorkspaceRenderer:
 
   def colormap_torch(self, depth, near=0.1):
     depth = depth.clone()
-    depth[depth == 0] = torch.inf
+    depth[depth <= 0] = torch.inf
 
     min_depth = torch.clamp(depth, min=near).min()
 
@@ -159,9 +159,16 @@ class WorkspaceRenderer:
     
     min_depth = self.workspace.camera_extent / 10.
 
+    depth = self.rendering.depth
+    eps = 1e-6
+
     if settings.view_mode == ViewMode.Depth:
-      image_gaussian = self.colormap_torch(self.rendering.depth, 
-                  near = min_depth).to(torch.uint8).cpu().numpy()
+      image_gaussian = self.colormap_torch(depth, near = min_depth).to(torch.uint8).cpu().numpy()
+    elif settings.view_mode == ViewMode.DepthVar:
+      norm_var = self.rendering.depth_var / (depth + eps)
+
+
+      image_gaussian = self.colormap_torch(norm_var, near = 1e-5).to(torch.uint8).cpu().numpy()  
     else:
       image_gaussian = (self.rendering.image.clamp(0, 1) * 255).to(torch.uint8).cpu().numpy()
 

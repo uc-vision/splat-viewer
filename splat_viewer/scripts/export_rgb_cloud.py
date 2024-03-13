@@ -79,8 +79,6 @@ def main():
   gaussians = gaussians.to(device=args.device)
 
   
-
-
   print("Loaded:", gaussians)
 
   if gaussians.foreground is not None:

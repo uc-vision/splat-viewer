@@ -140,6 +140,7 @@ class SceneWidget(QtWidgets.QWidget):
       Qt.Key_1 : ViewMode.Normal,
       Qt.Key_2 : ViewMode.Points,
       Qt.Key_3 : ViewMode.Depth,
+      Qt.Key_4 : ViewMode.DepthVar,
 
     }
 
