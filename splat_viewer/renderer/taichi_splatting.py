@@ -52,6 +52,7 @@ class GaussianRenderer:
       tile_size=self.config.tile_size,
       tight_culling=self.config.tight_culling,
       pixel_stride=self.config.pixel_stride,
+      depth16=self.config.use_depth16,
     )
       
     rendering = conic.renderer.render_gaussians(
@@ -59,7 +60,6 @@ class GaussianRenderer:
       camera_params=to_camera_params(camera, device),
       config=config, 
       use_sh=True, 
-      use_depth16=self.config.use_depth16,
       render_depth=render_depth)
     
     
