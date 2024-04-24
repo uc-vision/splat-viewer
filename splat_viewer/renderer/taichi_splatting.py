@@ -5,8 +5,7 @@ from beartype import beartype
 import torch
 from splat_viewer.camera.fov import FOVCamera
 
-from taichi_splatting import Gaussians3D, renderer
-from taichi_splatting.perspective import CameraParams
+from taichi_splatting import Gaussians3D, conic, CameraParams
 
 from splat_viewer.gaussians.data_types import Gaussians, Rendering
 
@@ -19,13 +18,12 @@ def to_camera_params(camera:FOVCamera, device=torch.device("cuda:0")):
     
     image_size=tuple(camera.image_size),
     near_plane=camera.near,
-    far_plane=camera.far
+    far_plane=camera.far,
+    blur_cov=0.3
   )
 
   return params.to(device=device, dtype=torch.float32)
     
-
-
 
 class GaussianRenderer:
   @dataclass 
@@ -50,13 +48,13 @@ class GaussianRenderer:
   def render(self, inputs:Gaussians3D, camera:FOVCamera, render_depth:bool = True):
     device = inputs.position.device
     
-    config = renderer.RasterConfig(
+    config = conic.renderer.RasterConfig(
       tile_size=self.config.tile_size,
       tight_culling=self.config.tight_culling,
       pixel_stride=self.config.pixel_stride,
     )
       
-    rendering = renderer.render_gaussians(
+    rendering = conic.renderer.render_gaussians(
       gaussians=inputs, 
       camera_params=to_camera_params(camera, device),
       config=config, 
