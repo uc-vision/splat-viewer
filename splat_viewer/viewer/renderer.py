@@ -13,7 +13,7 @@ from splat_viewer.gaussians import Gaussians, Rendering
 from splat_viewer.viewer.scene_camera import to_pyrender_camera
 
     
-from .mesh import make_camera_markers, make_bounding_box, filtered_points
+from .mesh import make_camera_markers, make_bounding_box
 from .settings import Settings, ViewMode
 
 import plyfile
