@@ -27,7 +27,10 @@ def to_plydata(gaussians:Gaussians) -> plyfile.PlyData:
     dtype.append(('foreground', 'u1'))
 
   if gaussians.label is not None:
-    dtype.append(('label', 'i16'))
+    dtype.append(('label', 'f4'))
+
+  if gaussians.instance_label is not None:
+    dtype.append(('instance_label', 'int16'))
 
   vertex = np.zeros(gaussians.batch_size[0], dtype=dtype )
 
@@ -59,6 +62,9 @@ def to_plydata(gaussians:Gaussians) -> plyfile.PlyData:
 
   if gaussians.label is not None:
     vertex['label'] = gaussians.label[:, 0].numpy()
+
+  if gaussians.instance_label is not None:
+    vertex['instance_label'] = gaussians.instance_label[0].numpy()
 
   el = plyfile.PlyElement.describe(vertex, 'vertex')
   return plyfile.PlyData([el])
@@ -98,11 +104,11 @@ def from_plydata(plydata:plyfile.PlyData) -> Gaussians:
   
   alpha_logit = get_keys(['opacity'])
 
-  
   foreground = (get_keys(['foreground']).to(torch.bool) 
     if 'foreground' in plydata['vertex'].data.dtype.names else None)
   
-  label = get_keys(['label']) if 'label' in plydata['vertex'].data.dtype.names else None
+  label = get_keys(['label']) if 'label' in vertex.data.dtype.names else None
+  instance_label = get_keys(['instance_label']) if 'instance_label' in vertex.data.dtype.names else None
   
   return Gaussians(
     position = positions, 
@@ -113,6 +119,7 @@ def from_plydata(plydata:plyfile.PlyData) -> Gaussians:
 
     foreground = foreground,
     label = label,
+    instance_label = instance_label,
 
     batch_size = (positions.shape[0],)
   )

@@ -38,7 +38,8 @@ class Gaussians():
   
   foreground : Optional[torch.Tensor] = None # 1 (bool) 
   label      : Optional[torch.Tensor] = None # 1 (int)
-
+  instance_label : Optional[torch.Tensor] = None # 1 (int)
+ 
   def __post_init__(self):
     assert self.position.shape[1] == 3, f"Expected shape (N, 3), got {self.position.shape}"
     assert self.log_scaling.shape[1] == 3, f"Expected shape (N, 3), got {self.log_scaling.shape}"
@@ -48,6 +49,7 @@ class Gaussians():
     check_sh_degree(self.sh_feature)
     assert self.foreground is None or self.foreground.shape[1] == 1, f"Expected shape (N, 1), got {self.foreground.shape}"
     assert self.label is None or self.label.shape[1] == 1, f"Expected shape (N, 1), got {self.label.shape}"
+    assert self.instance_label is None or self.instance_label.shape[1] == 1, f"Expected shape (N, 1), got {self.instance_label.shape}"
 
   def n(self):
     return self.batch_size[0]
