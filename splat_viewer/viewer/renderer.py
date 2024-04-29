@@ -85,11 +85,13 @@ class PyrenderScene:
 class RenderState:
   as_points : bool = False
   cropped : bool = False
+  filtered_points: bool = False
 
   def update_setting(self, settings:Settings):
     return replace(self,
       as_points = settings.view_mode == ViewMode.Points,
-      cropped = settings.show.cropped)
+      cropped = settings.show.cropped,
+      filtered_points = settings.show.filtered_points)
 
 
   def updated(self, gaussians:Gaussians) -> Gaussians:
@@ -99,6 +101,9 @@ class RenderState:
 
     if self.cropped and gaussians.foreground is not None:
       gaussians = gaussians[gaussians.foreground.squeeze()]
+
+    if self.filtered_points and gaussians.label is not None:
+      gaussians = gaussians[gaussians.label[:, 0] > 0.5]
 
     return gaussians
 
