@@ -79,9 +79,12 @@ def extract_instance_corner_points(gaussians: Gaussians):
 
 
 def make_bounding_box(gaussians: Gaussians):
+  assert gaussians.instance_label is not None
+  
   all_vertices = []
   all_indices = []
   current_vertex_count = 0
+  
   
   for (min_coords, max_coords) in extract_instance_corner_points(gaussians):
     min_x, min_y, min_z = min_coords.cpu().numpy()

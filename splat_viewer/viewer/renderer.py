@@ -48,9 +48,13 @@ class PyrenderScene:
 
     self.cameras = make_camera_markers(workspace.cameras, workspace.camera_extent / 50.)
     self.initial_scene.add(self.cameras)
-    self.bounding_boxes = make_bounding_box(gaussians)
-    self.initial_scene.add(self.bounding_boxes)
-    
+
+    if gaussians.instance_label is not None:
+      self.bounding_boxes = make_bounding_box(gaussians)
+      self.initial_scene.add(self.bounding_boxes)
+    else:
+      self.bounding_boxes = None
+
     self.renderer = None
 
 
@@ -70,7 +74,9 @@ class PyrenderScene:
 
     self.cameras.is_visible = settings.show.cameras
     self.points.is_visible = settings.show.initial_points
-    self.bounding_boxes.is_visible = settings.show.bounding_boxes
+
+    if self.bounding_boxes is not None:
+      self.bounding_boxes.is_visible = settings.show.bounding_boxes
 
     node = to_pyrender_camera(camera)
     scene =  self.initial_scene
