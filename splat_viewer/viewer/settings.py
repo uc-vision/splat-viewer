@@ -14,6 +14,7 @@ class Show:
   initial_points: bool = False
   cameras: bool = False
   cropped : bool = False
+  bounding_boxes: bool = False
 
 
 

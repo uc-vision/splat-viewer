@@ -5,8 +5,12 @@ import trimesh
 import numpy as np
 import pyrender
 
+import torch
+
 from splat_viewer.camera.fov import FOVCamera
 from splat_viewer.camera.transforms import batch_transform_points
+from splat_viewer.gaussians import Gaussians
+
 
 def instance_meshes(mesh:trimesh.Trimesh, transforms:np.array):
   vertices = batch_transform_points(transforms, mesh.vertices)
@@ -56,6 +60,73 @@ def make_camera_markers(cameras:List[FOVCamera], scale:float):
 
 
   return markers
+
+
+def extract_instance_corner_points(gaussians: Gaussians):
+  grouped_indices = {}
+  for idx, instance_label in enumerate(gaussians.instance_label):
+    label = instance_label.item()
+    if label not in grouped_indices:
+      grouped_indices[label] = []
+    grouped_indices[label].append(idx)
+
+  corner_points = []
+  for label, indices in grouped_indices.items():
+    if label is not -1:
+      positions = gaussians.position[indices]
+      min_coords, _ = torch.min(positions, dim=0)
+      max_coords, _ = torch.max(positions, dim=0)
+      corner_points.append((min_coords, max_coords))
+
+  return corner_points
+
+
+def make_bounding_box(gaussians):
+  all_vertices = []
+  all_indices = []
+  current_vertex_count = 0
+  
+  for (min_coords, max_coords) in extract_instance_corner_points(gaussians):
+    min_x, min_y, min_z = min_coords.tolist()
+    max_x, max_y, max_z = max_coords.tolist()
+
+    vertices = np.array([
+      [min_x, min_y, min_z], 
+      [max_x, min_y, min_z], 
+      [max_x, max_y, min_z], 
+      [min_x, max_y, min_z], 
+      [min_x, min_y, max_z], 
+      [max_x, min_y, max_z], 
+      [max_x, max_y, max_z], 
+      [min_x, max_y, max_z]
+    ])
+
+    edges = np.array([
+      [0, 1], [1, 2], [2, 3], [3, 0], 
+      [4, 5], [5, 6], [6, 7], [7, 4],
+      [0, 4], [1, 5], [2, 6], [3, 7]
+    ], dtype=np.uint32) + current_vertex_count
+
+    current_vertex_count += len(vertices)
+
+    all_vertices.append(vertices)
+    all_indices.append(edges)
+
+  all_vertices = np.vstack(all_vertices)
+  all_indices = np.vstack(all_indices)
+
+  primitive = pyrender.Primitive(
+    positions=all_vertices,
+    indices=all_indices,
+    mode=1,
+    material=pyrender.MetallicRoughnessMaterial
+              (doubleSided=True, wireframe=True, smooth=False, baseColorFactor=(255, 255, 0, 255))
+  )
+
+  mesh = pyrender.Mesh([primitive])
+
+  return mesh
+
 
 
 def make_sphere(radius=1.0, subdivisions=3, color=(0.0, 0.0, 1.0)):
