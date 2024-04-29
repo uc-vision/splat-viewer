@@ -13,7 +13,7 @@ from splat_viewer.gaussians import Gaussians, Rendering
 from splat_viewer.viewer.scene_camera import to_pyrender_camera
 
     
-from .mesh import make_camera_markers
+from .mesh import make_camera_markers, make_bounding_box
 from .settings import Settings, ViewMode
 
 import plyfile
@@ -37,7 +37,7 @@ def get_cv_colormap(cmap):
 
 class PyrenderScene:
   
-  def __init__(self,  workspace:Workspace):
+  def __init__(self,  workspace:Workspace, gaussians: Gaussians):
     self.seed_points = workspace.load_seed_points()
     self.initial_scene = pyrender.Scene()
 
@@ -48,6 +48,8 @@ class PyrenderScene:
 
     self.cameras = make_camera_markers(workspace.cameras, workspace.camera_extent / 50.)
     self.initial_scene.add(self.cameras)
+    self.bounding_boxes = make_bounding_box(gaussians)
+    self.initial_scene.add(self.bounding_boxes)
     
     self.renderer = None
 
@@ -68,6 +70,7 @@ class PyrenderScene:
 
     self.cameras.is_visible = settings.show.cameras
     self.points.is_visible = settings.show.initial_points
+    self.bounding_boxes.is_visible = settings.show.bounding_boxes
 
     node = to_pyrender_camera(camera)
     scene =  self.initial_scene
@@ -82,11 +85,15 @@ class PyrenderScene:
 class RenderState:
   as_points : bool = False
   cropped : bool = False
+  filtered_points: bool = False
+  color_instances: bool = False
 
   def update_setting(self, settings:Settings):
     return replace(self,
       as_points = settings.view_mode == ViewMode.Points,
-      cropped = settings.show.cropped)
+      cropped = settings.show.cropped,
+      filtered_points = settings.show.filtered_points,
+      color_instances = settings.show.color_instances)
 
 
   def updated(self, gaussians:Gaussians) -> Gaussians:
@@ -96,6 +103,25 @@ class RenderState:
 
     if self.cropped and gaussians.foreground is not None:
       gaussians = gaussians[gaussians.foreground.squeeze()]
+
+    if self.filtered_points and gaussians.label is not None:
+      gaussians = gaussians[gaussians.label[:, 0] > 0.6]
+
+
+    if self.color_instances and gaussians.instance_label is not None:
+    
+      instance_mask = (gaussians.instance_label >= 0).squeeze()
+      valid_label = gaussians.instance_label[instance_mask].squeeze()
+
+      unique_instance_labels = torch.unique(valid_label)
+      color_space = torch.rand(unique_instance_labels.shape[0], 3, device=instance_mask.device)
+
+      colors = gaussians.get_colors()
+
+      point_colors = color_space[valid_label]
+      colors[instance_mask] = point_colors
+      
+      gaussians = gaussians.with_colors(colors)
 
     return gaussians
 
@@ -109,7 +135,7 @@ class WorkspaceRenderer:
 
     self.gaussian_renderer = gaussian_renderer
 
-    self.pyrender_scene = PyrenderScene(workspace)
+    self.pyrender_scene = PyrenderScene(workspace, gaussians)
 
     self.rendering = None
     self.color_map = torch.from_numpy(get_cv_colormap(cv2.COLORMAP_TURBO)
@@ -135,7 +161,7 @@ class WorkspaceRenderer:
 
   def colormap_torch(self, depth, near=0.1):
     depth = depth.clone()
-    depth[depth == 0] = torch.inf
+    depth[depth <= 0] = torch.inf
 
     min_depth = torch.clamp(depth, min=near).min()
 
@@ -159,13 +185,20 @@ class WorkspaceRenderer:
     
     min_depth = self.workspace.camera_extent / 10.
 
+    depth = self.rendering.depth
+    eps = 1e-6
+
     if settings.view_mode == ViewMode.Depth:
-      image_gaussian = self.colormap_torch(self.rendering.depth, 
-                  near = min_depth).to(torch.uint8).cpu().numpy()
+      image_gaussian = self.colormap_torch(depth, near = min_depth).to(torch.uint8).cpu().numpy()
+    elif settings.view_mode == ViewMode.DepthVar:
+      norm_var = self.rendering.depth_var / (depth + eps)
+
+
+      image_gaussian = self.colormap_torch(norm_var, near = 1e-5).to(torch.uint8).cpu().numpy()  
     else:
       image_gaussian = (self.rendering.image.clamp(0, 1) * 255).to(torch.uint8).cpu().numpy()
 
-    if any([show.initial_points, show.cameras]):
+    if any([show.initial_points, show.cameras, show.bounding_boxes]):
 
       image, depth = self.pyrender_scene.render(camera, settings)
       depth_gaussian = self.rendering.depth.cpu().numpy()

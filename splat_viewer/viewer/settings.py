@@ -8,12 +8,16 @@ class ViewMode(Enum):
   Depth = 1
   Points = 2
   Hidden = 3
+  DepthVar = 4
 
 @dataclass(frozen=True)
 class Show:
   initial_points: bool = False
   cameras: bool = False
   cropped : bool = False
+  bounding_boxes: bool = False
+  filtered_points: bool = False
+  color_instances: bool = False
 
 
 
