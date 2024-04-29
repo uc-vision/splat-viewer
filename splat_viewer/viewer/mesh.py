@@ -78,39 +78,40 @@ def extract_instance_corner_points(gaussians: Gaussians):
 
 
 def make_bounding_box(gaussians: Gaussians):
+  assert gaussians.instance_label is not None
+  
   all_vertices = []
   all_indices = []
   current_vertex_count = 0
 
-  if gaussians.instance_label is not None:
-    for (min_coords, max_coords) in extract_instance_corner_points(gaussians):
-      min_x, min_y, min_z = min_coords.cpu().numpy()
-      max_x, max_y, max_z = max_coords.cpu().numpy()
+  for (min_coords, max_coords) in extract_instance_corner_points(gaussians):
+    min_x, min_y, min_z = min_coords.cpu().numpy()
+    max_x, max_y, max_z = max_coords.cpu().numpy()
 
-      vertices = np.array([
-        [min_x, min_y, min_z], 
-        [max_x, min_y, min_z], 
-        [max_x, max_y, min_z], 
-        [min_x, max_y, min_z], 
-        [min_x, min_y, max_z], 
-        [max_x, min_y, max_z], 
-        [max_x, max_y, max_z], 
-        [min_x, max_y, max_z]
-      ])
+    vertices = np.array([
+      [min_x, min_y, min_z], 
+      [max_x, min_y, min_z], 
+      [max_x, max_y, min_z], 
+      [min_x, max_y, min_z], 
+      [min_x, min_y, max_z], 
+      [max_x, min_y, max_z], 
+      [max_x, max_y, max_z], 
+      [min_x, max_y, max_z]
+    ])
 
-      edges = np.array([
-        [0, 1], [1, 2], [2, 3], [3, 0], 
-        [4, 5], [5, 6], [6, 7], [7, 4],
-        [0, 4], [1, 5], [2, 6], [3, 7]
-      ], dtype=np.uint32) + current_vertex_count
+    edges = np.array([
+      [0, 1], [1, 2], [2, 3], [3, 0], 
+      [4, 5], [5, 6], [6, 7], [7, 4],
+      [0, 4], [1, 5], [2, 6], [3, 7]
+    ], dtype=np.uint32) + current_vertex_count
 
-      current_vertex_count += len(vertices)
+    current_vertex_count += len(vertices)
 
-      all_vertices.append(vertices)
-      all_indices.append(edges)
+    all_vertices.append(vertices)
+    all_indices.append(edges)
 
-    all_vertices = np.vstack(all_vertices)
-    all_indices = np.vstack(all_indices)
+  all_vertices = np.vstack(all_vertices)
+  all_indices = np.vstack(all_indices)
 
   primitive = pyrender.Primitive(
     positions=all_vertices,

@@ -48,9 +48,13 @@ class PyrenderScene:
 
     self.cameras = make_camera_markers(workspace.cameras, workspace.camera_extent / 50.)
     self.initial_scene.add(self.cameras)
-    self.bounding_boxes = make_bounding_box(gaussians)
-    self.initial_scene.add(self.bounding_boxes)
-    
+
+    if gaussians.instance_label is not None:
+      self.bounding_boxes = make_bounding_box(gaussians)
+      self.initial_scene.add(self.bounding_boxes)
+    else:
+      self.bounding_boxes = None
+
     self.renderer = None
 
 
@@ -70,7 +74,9 @@ class PyrenderScene:
 
     self.cameras.is_visible = settings.show.cameras
     self.points.is_visible = settings.show.initial_points
-    self.bounding_boxes.is_visible = settings.show.bounding_boxes
+
+    if self.bounding_boxes is not None:
+      self.bounding_boxes.is_visible = settings.show.bounding_boxes
 
     node = to_pyrender_camera(camera)
     scene =  self.initial_scene
@@ -161,7 +167,7 @@ class WorkspaceRenderer:
 
   def colormap_torch(self, depth, near=0.1):
     depth = depth.clone()
-    depth[depth == 0] = torch.inf
+    depth[depth <= 0] = torch.inf
 
     min_depth = torch.clamp(depth, min=near).min()
 
@@ -185,9 +191,16 @@ class WorkspaceRenderer:
     
     min_depth = self.workspace.camera_extent / 10.
 
+    depth = self.rendering.depth
+    eps = 1e-6
+
     if settings.view_mode == ViewMode.Depth:
-      image_gaussian = self.colormap_torch(self.rendering.depth, 
-                  near = min_depth).to(torch.uint8).cpu().numpy()
+      image_gaussian = self.colormap_torch(depth, near = min_depth).to(torch.uint8).cpu().numpy()
+    elif settings.view_mode == ViewMode.DepthVar:
+      norm_var = self.rendering.depth_var / (depth + eps)
+
+
+      image_gaussian = self.colormap_torch(norm_var, near = 1e-5).to(torch.uint8).cpu().numpy()  
     else:
       image_gaussian = (self.rendering.image.clamp(0, 1) * 255).to(torch.uint8).cpu().numpy()
 
