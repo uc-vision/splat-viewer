@@ -86,12 +86,14 @@ class RenderState:
   as_points : bool = False
   cropped : bool = False
   filtered_points: bool = False
+  color_instances: bool = False
 
   def update_setting(self, settings:Settings):
     return replace(self,
       as_points = settings.view_mode == ViewMode.Points,
       cropped = settings.show.cropped,
-      filtered_points = settings.show.filtered_points)
+      filtered_points = settings.show.filtered_points,
+      color_instances = settings.show.color_instances)
 
 
   def updated(self, gaussians:Gaussians) -> Gaussians:
@@ -103,7 +105,23 @@ class RenderState:
       gaussians = gaussians[gaussians.foreground.squeeze()]
 
     if self.filtered_points and gaussians.label is not None:
-      gaussians = gaussians[gaussians.label[:, 0] > 0.5]
+      gaussians = gaussians[gaussians.label[:, 0] > 0.6]
+
+
+    if self.color_instances and gaussians.instance_label is not None:
+    
+      instance_mask = (gaussians.instance_label >= 0).squeeze()
+      valid_label = gaussians.instance_label[instance_mask].squeeze()
+
+      unique_instance_labels = torch.unique(valid_label)
+      color_space = torch.rand(unique_instance_labels.shape[0], 3, device=instance_mask.device)
+
+      colors = gaussians.get_colors()
+
+      point_colors = color_space[valid_label]
+      colors[instance_mask] = point_colors
+      
+      gaussians = gaussians.with_colors(colors)
 
     return gaussians
 

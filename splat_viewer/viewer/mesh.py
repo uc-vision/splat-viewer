@@ -63,32 +63,29 @@ def make_camera_markers(cameras:List[FOVCamera], scale:float):
 
 
 def extract_instance_corner_points(gaussians: Gaussians):
-  grouped_indices = {}
-  for idx, instance_label in enumerate(gaussians.instance_label):
-    label = instance_label.item()
-    if label not in grouped_indices:
-      grouped_indices[label] = []
-    grouped_indices[label].append(idx)
+
+  mask = gaussians.instance_label != -1
+
+  valid_labels = gaussians.instance_label[mask]
+  unique_labels = torch.unique(valid_labels)
 
   corner_points = []
-  for label, indices in grouped_indices.items():
-    if label is not -1:
-      positions = gaussians.position[indices]
-      min_coords, _ = torch.min(positions, dim=0)
-      max_coords, _ = torch.max(positions, dim=0)
-      corner_points.append((min_coords, max_coords))
+  for label in unique_labels:
+
+    positions = gaussians.position[(gaussians.instance_label == label).squeeze()]
+    corner_points.append((torch.min(positions, dim=0)[0], torch.max(positions, dim=0)[0]))
 
   return corner_points
 
 
-def make_bounding_box(gaussians):
+def make_bounding_box(gaussians: Gaussians):
   all_vertices = []
   all_indices = []
   current_vertex_count = 0
   
   for (min_coords, max_coords) in extract_instance_corner_points(gaussians):
-    min_x, min_y, min_z = min_coords.tolist()
-    max_x, max_y, max_z = max_coords.tolist()
+    min_x, min_y, min_z = min_coords.cpu().numpy()
+    max_x, max_y, max_z = max_coords.cpu().numpy()
 
     vertices = np.array([
       [min_x, min_y, min_z], 
