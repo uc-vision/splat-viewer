@@ -20,7 +20,8 @@ dependencies = [
   "pyside6",
   "natsort",
   "opencv_python",
-  "pyrender"
+  "pyrender",
+  "roma"
 
 ]
 
@@ -43,6 +44,7 @@ splat-multi-benchmark = "splat_viewer.scripts.splat_multi_benchmark:main"
 debug-tiles = "splat_viewer.scripts.debug_tiles:main"
 label-foreground = "splat_viewer.scripts.label_foreground:main"
 export-workspace = "splat_viewer.scripts.export_workspace:main"
+export-rgb-cloud = "splat_viewer.scripts.export_rgb_cloud:main"
 
 
 [tool.ruff]

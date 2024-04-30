@@ -140,6 +140,7 @@ class SceneWidget(QtWidgets.QWidget):
       Qt.Key_1 : ViewMode.Normal,
       Qt.Key_2 : ViewMode.Points,
       Qt.Key_3 : ViewMode.Depth,
+      Qt.Key_4 : ViewMode.DepthVar,
 
     }
 
@@ -147,6 +148,9 @@ class SceneWidget(QtWidgets.QWidget):
       Qt.Key_0 : 'cropped',
       Qt.Key_9 : 'initial_points',
       Qt.Key_8 : 'cameras',
+      Qt.Key_7 : 'bounding_boxes',
+      Qt.Key_6 : 'filtered_points',
+      Qt.Key_5 : 'color_instances'
     }
 
     if event.key() == Qt.Key_Print:
