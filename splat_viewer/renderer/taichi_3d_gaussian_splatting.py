@@ -38,7 +38,7 @@ class TaichiRenderer:
   def __init__(self):
     config = GaussianPointCloudRasterisation.GaussianPointCloudRasterisationConfig(
       near_plane=0.1,
-      far_plane=1000.0,
+      far_plane=100.0,
       depth_to_sort_key_scale=10000.0,
     )
 

@@ -31,7 +31,7 @@ class FOVCamera:
   principal_point : np.ndarray = field(default_factory=lambda: np.array([0., 0.]))
 
   near:float  = 0.1
-  far :float  = 1000.0
+  far :float  = 100.0
 
   @staticmethod
   def from_json(json_dict) -> 'FOVCamera':
@@ -259,7 +259,9 @@ def from_json(camera_info) -> FOVCamera:
     image_size=np.array([w, h], dtype=np.int32),
     focal_length=np.array([camera_info['fx'], camera_info['fy']]),
     principal_point=np.array([cx, cy]),
-    image_name=camera_info['img_name']
+    image_name=camera_info['img_name'],
+    near=camera_info.get('near', 0.1),
+    far=camera_info.get('far', 100.0)
   )
 
 def to_json(camera:FOVCamera):
@@ -277,6 +279,8 @@ def to_json(camera:FOVCamera):
     'cy': cy,
     'position': camera.position.tolist(),
     'rotation': camera.rotation.tolist(),
+    'near': camera.near,
+    'far': camera.far
   }
 
 
