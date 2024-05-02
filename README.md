@@ -8,6 +8,20 @@ A viewer and some tools to work with guassian splatting reconstructions. Current
 Some example scenes can be found from the official [gaussian-splatting](https://github.com/graphdeco-inria/gaussian-splatting) page. Under [Pre-trained models](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/datasets/pretrained/models.zip).
 
 
+## Installing
+
+# Taichi-nightly
+
+* taichi-nightly
+`pip install --upgrade -i https://pypi.taichi.graphics/simple/ taichi-nightly`
+
+* torch >= 1.8 (probably works with earlier versions, too)
+
+* Install taichi-nightly as above (note that the external repo cannot be listed in the pyproject.toml)
+* Clone down with `git clone` and install with `pip install ./taichi-spatting`
+* `pip install splat-viewer`
+
+
 # splat-viewer 
 
 A gaussian splatting viewer. An example of some visualizations produced by this viewer can be seen:
