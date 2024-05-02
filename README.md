@@ -10,16 +10,18 @@ Some example scenes can be found from the official [gaussian-splatting](https://
 
 ## Installing
 
-# Taichi-nightly
+### External dependencies
+Create an environment (for example conda with mambaforge) with the following dependencies:
 
-* taichi-nightly
-`pip install --upgrade -i https://pypi.taichi.graphics/simple/ taichi-nightly`
+* python >= 3.10
+* pytorch - from either conda  Follow instructions [https://pytorch.org/](here).
+* taichi-nightly `pip install --upgrade -i https://pypi.taichi.graphics/simple/ taichi-nightly`
 
-* torch >= 1.8 (probably works with earlier versions, too)
+### Install
 
-* Install taichi-nightly as above (note that the external repo cannot be listed in the pyproject.toml)
-* Clone down with `git clone` and install with `pip install ./taichi-spatting`
+One of:
 * `pip install splat-viewer`
+* Clone down with `git clone` and install with `pip install ./splat-viewer`
 
 
 # splat-viewer 
