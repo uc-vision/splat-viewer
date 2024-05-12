@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from splat_viewer.camera.fov import FOVCamera
 
 from taichi_splatting import Gaussians3D
+from taichi_splatting.misc.morton_sort import morton_argsort64
 import roma
 
 
@@ -133,8 +134,9 @@ class Gaussians():
 
 
   def sorted(self):
-    max_axis = torch.max(self.log_scaling, dim=1).values
-    indices = torch.argsort(max_axis, descending=False)
+    # max_axis = torch.max(self.log_scaling, dim=1).values
+    # indices = torch.argsort(max_axis, descending=False)
+    indices = morton_argsort64(self.position)
 
     return self[indices]
     
