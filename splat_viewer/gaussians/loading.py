@@ -30,7 +30,7 @@ def to_plydata(gaussians:Gaussians) -> plyfile.PlyData:
     dtype.append(('label', 'f4'))
 
   if gaussians.instance_label is not None:
-    dtype.append(('instance_label', 'int16'))
+    dtype.append(('instance_label', 'i4'))
 
   vertex = np.zeros(gaussians.batch_size[0], dtype=dtype )
 
