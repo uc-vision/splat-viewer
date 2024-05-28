@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field, replace
-from numbers import Number
+from numbers import Number, Integral
 
 from pathlib import Path
 
@@ -12,10 +12,26 @@ from beartype.typing import Tuple
 from splat_viewer.camera.transforms import project_points, unproject_pixels
 
 
-num_pair = np.ndarray | Tuple[Number, Number]
-int_pair = np.ndarray | Tuple[int, int]
+NumberPair = np.ndarray | Tuple[Number, Number]
+IntPair = np.ndarray | Tuple[int, int]
 
 Box = Tuple[int, int, int, int]
+
+
+def resize_shortest(image_size:Tuple[Integral, Integral], 
+                    min_size, max_size=None) -> Tuple[Tuple[int, int], float]:
+  
+  if max_size is None:
+    max_size = min_size
+  
+  shortest = min(image_size)
+  
+  scale = (min_size / shortest if shortest < min_size 
+            else max_size / shortest)
+
+  new_size = tuple(np.round(np.array(image_size) * scale).astype(np.int32))
+  return new_size, scale
+  
 
 
 @beartype
@@ -61,15 +77,22 @@ class FOVCamera:
       focal_length=self.focal_length * scale_factor,
       principal_point=self.principal_point * scale_factor
     )
+  
+  def scale_to(self, new_size:NumberPair, scale_factor:float) -> 'FOVCamera':
+    return replace(self,
+      image_size=np.array(new_size).astype(np.int32),
+      focal_length=self.focal_length * scale_factor,
+      principal_point=self.principal_point * scale_factor
+    )
     
-  def crop_offset_size(self, offset:num_pair, size:num_pair) -> 'FOVCamera':
+  def crop_offset_size(self, offset:NumberPair, size:NumberPair) -> 'FOVCamera':
     offset, size = np.array(offset), np.array(size)
     return replace(self,
       image_size=size.astype(np.int32),
       principal_point=self.principal_point - offset
     )
   
-  def crop_extent(self, centre:num_pair, size:num_pair) -> 'FOVCamera':
+  def crop_extent(self, centre:NumberPair, size:NumberPair) -> 'FOVCamera':
       centre, size = np.array(centre), np.array(size)
       return self.crop_offset_size(centre - size / 2, size)
 
@@ -80,26 +103,30 @@ class FOVCamera:
       np.array([x_max - x_min, y_max - y_min])
     )
     
-  def pad_to(self, image_size:num_pair) -> 'FOVCamera':
+  def pad_to(self, image_size:NumberPair) -> 'FOVCamera':
     image_size = np.array(image_size)
     return replace(self,
       image_size=image_size.astype(np.int32),
       principal_point=self.principal_point + (image_size - self.image_size) / 2
     )
     
+  def pad_bottom_right(self, image_size:NumberPair) -> 'FOVCamera':
+    image_size = np.array(image_size)
+    return replace(self,
+      image_size=image_size.astype(np.int32),
+      principal_point=self.principal_point 
+    )
 
-  def resize_shortest(self, min_size, max_size) -> 'FOVCamera':
-    shortest = min(self.image_size)
-    scale = (min_size / shortest if shortest < min_size 
-             else max_size / shortest)
-    return self.scale_size(scale)
+  def resize_shortest(self, min_size, max_size=None) -> 'FOVCamera':
+    new_size, scale = resize_shortest(self.image_size, min_size, max_size)
+    return self.scale_to(new_size, scale)
   
   def resize_longest(self, size) -> 'FOVCamera':
     longest = max(self.image_size)
     return self.scale_size(size / longest)
 
   
-  def resize_to(self, size:num_pair) -> 'FOVCamera':
+  def resize_to(self, size:NumberPair) -> 'FOVCamera':
     size = np.array(size)
     return self.scale_size(size / self.image_size)
   
