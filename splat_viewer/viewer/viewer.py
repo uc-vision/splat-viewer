@@ -39,12 +39,11 @@ def show_workspace(workspace:Workspace, gaussians:Gaussians = None, queue:Queue=
 
   def update_gaussians():
     if queue is not None and not queue.empty():
-      index, gaussians_container[0] = queue.get()
-      # print(queue.qsize())
-      widget.update_workspace(gaussians_container[0], index)
+      gaussians_container[0] = queue.get()
+      widget.update_workspace(gaussians_container[0])
 
   widget.timer.timeout.connect(update_gaussians)
-  widget.timer.start(1000)
+  widget.timer.start(10)
 
   print(f"Showing model from {workspace.model_path}: {gaussians_container[0]}")
 

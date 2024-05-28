@@ -1,5 +1,5 @@
 from dataclasses import replace
-from beartype.typing import Tuple
+from beartype.typing import Tuple, Optional
 
 from PySide6 import QtGui, QtCore, QtWidgets
 from PySide6.QtCore import Qt, QEvent
@@ -69,6 +69,14 @@ class SceneWidget(QtWidgets.QWidget):
 
     self.set_camera_index(0)
     self.camera_state = FlyControl()
+
+  def update_workspace(self, gaussians:Gaussians, index:Optional[int]=None):
+    # self.workspace_renderer = WorkspaceRenderer(self.workspace, gaussians.to(device=self.settings.device), self.renderer)
+    self.load_workspace(self.workspace, gaussians)
+    if index is not None:
+      self.set_camera_index(index)
+    self.show()
+
     
 
 
