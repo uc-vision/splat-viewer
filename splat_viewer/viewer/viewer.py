@@ -14,14 +14,16 @@ from splat_viewer.viewer.scene_widget import SceneWidget, Settings
 import signal
 import taichi as ti
 import torch
+from torch.multiprocessing import Queue
 
 
-def show_workspace(workspace:Workspace, gaussians:Gaussians = None):
+def show_workspace(workspace:Workspace, gaussians:Gaussians = None, update_queue:Queue=None):
   import taichi as ti
   ti.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
 
   from splat_viewer.viewer.viewer import sigint_handler
   signal.signal(signal.SIGINT, sigint_handler)
+
 
   app = QtWidgets.QApplication.instance()
   if app is None:
@@ -32,12 +34,24 @@ def show_workspace(workspace:Workspace, gaussians:Gaussians = None):
   if gaussians is None:
     gaussians = workspace.load_model(workspace.latest_iteration())
 
+  widget.load_workspace(workspace, gaussians)
+
+  def update_gaussians():  
+    if not update_queue.empty():
+      update = update_queue.get()
+
+      gaussians = update if isinstance(update, Gaussians) else widget.gaussians.replace(**update)
+      widget.update_gaussians(gaussians)
+
+  if update_queue is not None:
+    widget.timer.timeout.connect(update_gaussians)
+    widget.timer.start(10)
+
   print(f"Showing model from {workspace.model_path}: {gaussians}")
 
-
-  widget.load_workspace(workspace, gaussians)
   widget.show()
   app.exec_()
+
 
 
 
