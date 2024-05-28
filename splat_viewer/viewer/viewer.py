@@ -17,14 +17,13 @@ import torch
 from torch.multiprocessing import Queue
 
 
-def show_workspace(workspace:Workspace, gaussians:Gaussians = None, queue:Queue=None):
+def show_workspace(workspace:Workspace, gaussians:Gaussians = None, update_queue:Queue=None):
   import taichi as ti
   ti.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
 
   from splat_viewer.viewer.viewer import sigint_handler
   signal.signal(signal.SIGINT, sigint_handler)
 
-  gaussians_container = [gaussians]
 
   app = QtWidgets.QApplication.instance()
   if app is None:
@@ -32,20 +31,23 @@ def show_workspace(workspace:Workspace, gaussians:Gaussians = None, queue:Queue=
     
   widget = SceneWidget(renderer = GaussianRenderer())
 
-  if gaussians_container[0] is None:
-    gaussians_container[0] = workspace.load_model(workspace.latest_iteration())
+  if gaussians is None:
+    gaussians = workspace.load_model(workspace.latest_iteration())
 
-  widget.load_workspace(workspace, gaussians_container[0])
+  widget.load_workspace(workspace, gaussians)
 
-  def update_gaussians():
-    if queue is not None and not queue.empty():
-      gaussians_container[0] = queue.get()
-      widget.update_workspace(gaussians_container[0])
+  def update_gaussians():  
+    if not update_queue.empty():
+      update = update_queue.get()
 
-  widget.timer.timeout.connect(update_gaussians)
-  widget.timer.start(10)
+      gaussians = update if isinstance(update, Gaussians) else widget.gaussians.replace(**update)
+      widget.update_gaussians(gaussians)
 
-  print(f"Showing model from {workspace.model_path}: {gaussians_container[0]}")
+  if update_queue is not None:
+    widget.timer.timeout.connect(update_gaussians)
+    widget.timer.start(10)
+
+  print(f"Showing model from {workspace.model_path}: {gaussians}")
 
   widget.show()
   app.exec_()
