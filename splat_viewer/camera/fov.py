@@ -282,6 +282,7 @@ def to_json(camera:FOVCamera):
 
 
 def load_camera_json(filename:Path):
+  filename = Path(filename)
   cameras = sorted(json.loads(filename.read_text()), key=lambda x: x['id'])
 
   return {camera_info['id']: from_json(camera_info) for camera_info in cameras}
