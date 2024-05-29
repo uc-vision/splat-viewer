@@ -161,7 +161,7 @@ class WorkspaceRenderer:
   def update_gaussians(self, gaussians:Gaussians):
     self.gaussians = gaussians
     self.packed_gaussians = None
-
+    self.pyrender_scene = PyrenderScene(self.workspace, gaussians)
 
   def unproject_mask(self, camera:FOVCamera, 
                 mask:torch.Tensor, alpha_multiplier=1.0, threshold=1.0):
