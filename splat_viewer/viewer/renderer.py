@@ -111,7 +111,7 @@ class RenderState:
       gaussians = gaussians[gaussians.foreground.squeeze()]
 
     if self.filtered_points and gaussians.label is not None:
-      gaussians = gaussians[gaussians.label.squeeze() > 0.4]
+      gaussians = gaussians[gaussians.label.squeeze() > 0.38]
 
     if self.color_instances and gaussians.instance_label is not None:
     
