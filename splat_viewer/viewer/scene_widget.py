@@ -68,7 +68,7 @@ class SceneWidget(QtWidgets.QWidget):
   def load_workspace(self, workspace:Workspace, gaussians:Gaussians):
     self.workspace = workspace
     
-    self.workspace_renderer = WorkspaceRenderer(workspace, gaussians.to(device=self.settings.device), self.renderer)
+    self.workspace_renderer = WorkspaceRenderer(workspace, gaussians.to(self.settings.device), self.renderer)
     self.keypoints = self.read_keypoints()
 
     self.set_camera_index(0)
@@ -82,7 +82,7 @@ class SceneWidget(QtWidgets.QWidget):
     self.show()
 
   def update_gaussians(self, gaussians:Gaussians):
-    self.workspace_renderer.update_gaussians(gaussians.to(device=self.settings.device))
+    self.workspace_renderer.update_gaussians(gaussians.to(self.settings.device))
     self.dirty = True
 
 

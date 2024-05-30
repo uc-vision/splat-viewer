@@ -58,7 +58,7 @@ class PyrenderScene:
   
   def update_gaussians(self, gaussians:Gaussians):
     if self.bbox_node is not None:
-      self.initial_scene.remove_node(self.box_node)
+      self.initial_scene.remove_node(self.bbox_node)
 
     if gaussians.instance_label is not None:
       bounding_boxes = make_bounding_box(gaussians)
