@@ -14,9 +14,9 @@ class ViewMode(Enum):
 class Show:
   initial_points: bool = False
   cameras: bool = False
-  cropped : bool = False
-  bounding_boxes: bool = False
-  filtered_points: bool = False
+  cropped : bool = True
+  bounding_boxes: bool = True
+  filtered_points: bool = True
   color_instances: bool = False
 
 
