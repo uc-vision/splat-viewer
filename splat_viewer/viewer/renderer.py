@@ -127,7 +127,7 @@ class RenderState:
       gaussians = gaussians.with_colors(colors)
 
     if self.filtered_points and gaussians.label is not None:
-      gaussians = gaussians[gaussians.label.squeeze() > 0.4]
+      gaussians = gaussians[gaussians.label.squeeze() > 0.3]
 
     return gaussians
 
