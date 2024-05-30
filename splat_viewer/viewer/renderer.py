@@ -110,9 +110,6 @@ class RenderState:
     if self.cropped and gaussians.foreground is not None:
       gaussians = gaussians[gaussians.foreground.squeeze()]
 
-    if self.filtered_points and gaussians.label is not None:
-      gaussians = gaussians[gaussians.label.squeeze() > 0.38]
-
     if self.color_instances and gaussians.instance_label is not None:
     
       instance_mask = (gaussians.instance_label >= 0).squeeze()
@@ -128,6 +125,9 @@ class RenderState:
       colors[instance_mask] = point_colors
       
       gaussians = gaussians.with_colors(colors)
+
+    if self.filtered_points and gaussians.label is not None:
+      gaussians = gaussians[gaussians.label.squeeze() > 0.4]
 
     return gaussians
 
