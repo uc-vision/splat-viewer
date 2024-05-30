@@ -38,6 +38,9 @@ def get_cv_colormap(cmap):
 class PyrenderScene:
   
   def __init__(self,  workspace:Workspace, gaussians: Gaussians):
+    self.bbox_node = None
+    self.renderer = None
+
     self.seed_points = workspace.load_seed_points()
     self.initial_scene = pyrender.Scene()
 
@@ -48,14 +51,20 @@ class PyrenderScene:
 
     self.cameras = make_camera_markers(workspace.cameras, workspace.camera_extent / 50.)
     self.initial_scene.add(self.cameras)
+    
+    self.update_gaussians(gaussians)
+
+
+  
+  def update_gaussians(self, gaussians:Gaussians):
+    if self.bbox_node is not None:
+      self.initial_scene.remove_node(self.box_node)
 
     if gaussians.instance_label is not None:
-      self.bounding_boxes = make_bounding_box(gaussians)
-      self.initial_scene.add(self.bounding_boxes)
+      bounding_boxes = make_bounding_box(gaussians)
+      self.bbox_node = self.initial_scene.add(bounding_boxes)
     else:
-      self.bounding_boxes = None
-
-    self.renderer = None
+      self.bbox_node = None
 
 
   def create_renderer(self, camera, settings:Settings):
@@ -75,8 +84,8 @@ class PyrenderScene:
     self.cameras.is_visible = settings.show.cameras
     self.points.is_visible = settings.show.initial_points
 
-    if self.bounding_boxes is not None:
-      self.bounding_boxes.is_visible = settings.show.bounding_boxes
+    if self.bbox_node is not None:
+      self.bbox_node.mesh.is_visible = settings.show.bounding_boxes
 
     node = to_pyrender_camera(camera)
     scene =  self.initial_scene
@@ -161,7 +170,8 @@ class WorkspaceRenderer:
   def update_gaussians(self, gaussians:Gaussians):
     self.gaussians = gaussians
     self.packed_gaussians = None
-    self.pyrender_scene = PyrenderScene(self.workspace, gaussians)
+    
+    self.pyrender_scene.update_gaussians(gaussians)
 
   def unproject_mask(self, camera:FOVCamera, 
                 mask:torch.Tensor, alpha_multiplier=1.0, threshold=1.0):
