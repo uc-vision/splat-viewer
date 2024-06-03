@@ -114,7 +114,9 @@ class RenderState:
   def updated(self, gaussians:Gaussians) -> Gaussians:
 
     if self.as_points:
-      gaussians = gaussians.with_fixed_scale(0.001)
+
+      alpha_logit = torch.full_like(gaussians.alpha_logit, 10.0)
+      gaussians = gaussians.with_fixed_scale(0.001).replace(alpha_logit=alpha_logit)
 
     if self.cropped and gaussians.foreground is not None:
       gaussians = gaussians[gaussians.foreground.squeeze()]
