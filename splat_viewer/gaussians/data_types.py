@@ -73,11 +73,23 @@ class Gaussians():
       batch_size=self.batch_size
     )
 
+  @staticmethod
+  def from_gaussians3d(g:Gaussians3D):
+    return Gaussians(
+      position=g.position,
+      log_scaling=g.log_scaling,
+      rotation=g.rotation,
+      alpha_logit=g.alpha_logit,
+      sh_feature=g.feature,
+      batch_size=g.batch_size
+    )
+
   def crop_foreground(self):
     if self.foreground is None:
       return self
     else:
       return self[self.foreground[:, 0]]
+    
 
 
   def scale(self):

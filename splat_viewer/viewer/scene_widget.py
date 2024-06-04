@@ -28,8 +28,8 @@ from .settings import Settings, ViewMode
 
 
 class SceneWidget(QtWidgets.QWidget):
-  def __init__(self, settings:Settings = Settings(), renderer=None):
-    super(SceneWidget, self).__init__()
+  def __init__(self, settings:Settings = Settings(), renderer=None, parent=None):
+    super(SceneWidget, self).__init__(parent=parent)
 
     SceneWidget.instance = self
 
@@ -68,21 +68,21 @@ class SceneWidget(QtWidgets.QWidget):
   def load_workspace(self, workspace:Workspace, gaussians:Gaussians):
     self.workspace = workspace
     
-    self.workspace_renderer = WorkspaceRenderer(workspace, gaussians.to(device=self.settings.device), self.renderer)
+    self.workspace_renderer = WorkspaceRenderer(workspace, gaussians.to(self.settings.device), self.renderer)
     self.keypoints = self.read_keypoints()
 
     self.set_camera_index(0)
     self.camera_state = FlyControl()
 
   def update_workspace(self, gaussians:Gaussians, index:Optional[int]=None):
-    # self.workspace_renderer = WorkspaceRenderer(self.workspace, gaussians.to(device=self.settings.device), self.renderer)
     self.load_workspace(self.workspace, gaussians)
     if index is not None:
       self.set_camera_index(index)
     self.show()
 
   def update_gaussians(self, gaussians:Gaussians):
-    self.workspace_renderer.update_gaussians(gaussians.to(device=self.settings.device))
+
+    self.workspace_renderer.update_gaussians(gaussians.to(self.settings.device))
     self.dirty = True
 
 

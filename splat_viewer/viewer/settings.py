@@ -21,7 +21,6 @@ class Show:
 
 
 
-
 @dataclass(frozen=True)
 class Settings:
   update_rate : int = 20

@@ -1,113 +1,147 @@
-import sys
-import argparse
 
-from PySide6 import  QtWidgets
-from PySide6.QtWidgets import QApplication
-
-from splat_viewer.gaussians.workspace import Workspace, load_workspace
-from splat_viewer.gaussians import Gaussians
-from splat_viewer.renderer.arguments import add_render_arguments, make_renderer_args, renderer_from_args
-from splat_viewer.renderer.taichi_splatting import GaussianRenderer
-
-from splat_viewer.viewer.scene_widget import SceneWidget, Settings
 
 import signal
-import taichi as ti
-import torch
-from torch.multiprocessing import Queue
+
+from PySide6 import QtWidgets
+from PySide6 import QtCore
+from torch.multiprocessing import Process, Queue, get_start_method
+
+from splat_viewer.gaussians import Gaussians
+from splat_viewer.gaussians.workspace import Workspace
+from splat_viewer.renderer.taichi_splatting import GaussianRenderer
+from splat_viewer.viewer.scene_widget import SceneWidget, Settings
 
 
-def show_workspace(workspace:Workspace, gaussians:Gaussians = None, update_queue:Queue=None):
+def init_viewer(workspace:Workspace, 
+                   gaussians:Gaussians = None, 
+                   settings:Settings=Settings()):
+
+  app = QtWidgets.QApplication.instance()
+  if app is None:
+    app = QtWidgets.QApplication(["viewer"])
+    
+
+  widget = SceneWidget(settings=settings, 
+                       renderer = GaussianRenderer())
+
+  if gaussians is None:
+    gaussians = workspace.load_model(workspace.latest_iteration())
+  widget.load_workspace(workspace, gaussians)
+
+
+  widget.show()
+  return app, widget
+
+def show_workspace(workspace:Workspace, 
+                   gaussians:Gaussians = None, 
+                   settings:Settings=Settings()):
+  from splat_viewer.viewer.viewer import sigint_handler
+  signal.signal(signal.SIGINT, sigint_handler)
+
+  print(f"Showing model from {workspace.model_path}: {gaussians}")
+  app, _ = init_viewer(workspace, gaussians, settings)
+  app.exec()
+
+
+def sigint_handler(*args):
+    QtWidgets.QApplication.quit()
+
+
+def run_process(workspace:Workspace, 
+                   update_queue:Queue,
+
+                   gaussians:Gaussians = None, 
+                   settings:Settings=Settings()):
+  
   import taichi as ti
   ti.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
 
   from splat_viewer.viewer.viewer import sigint_handler
   signal.signal(signal.SIGINT, sigint_handler)
 
+  app, widget = init_viewer(workspace, gaussians, settings)
 
-  app = QtWidgets.QApplication.instance()
-  if app is None:
-    app = QtWidgets.QApplication(["viewer"])
-    
-  widget = SceneWidget(renderer = GaussianRenderer())
 
-  if gaussians is None:
-    gaussians = workspace.load_model(workspace.latest_iteration())
-
-  widget.load_workspace(workspace, gaussians)
-
-  def update_gaussians():  
+  def on_timer(): 
     if not update_queue.empty():
       update = update_queue.get()
 
-      gaussians = update if isinstance(update, Gaussians) else widget.gaussians.replace(**update)
-      widget.update_gaussians(gaussians)
+      if update is None:
+        app.quit()
+        return
 
-  if update_queue is not None:
-    widget.timer.timeout.connect(update_gaussians)
-    widget.timer.start(10)
+      if isinstance(update, Gaussians):
+        widget.update_gaussians(update)
+      elif isinstance(update, dict):
+        widget.update_gaussians(widget.gaussians.replace(**update))
+      else:
+        raise TypeError(f"Unknown type of update: {type(update)}")
 
-  print(f"Showing model from {workspace.model_path}: {gaussians}")
+  timer = QtCore.QTimer(widget)
+  timer.timeout.connect(on_timer)
 
-  widget.show()
-  app.exec_()
+  timer.start(10)
 
-
-
-
-def process_cl_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('model_path', help="workspace folder containing cameras.json, input.ply and point_cloud folder with .ply models")  # positional argument
-    parser.add_argument('--model', default=None, help="load model from point_clouds folder, default is latest iteration") 
-    parser.add_argument('--device', default='cuda:0', help="torch device to use")
-    parser.add_argument('--debug', action='store_true', help="enable taichi kernels in debug mode")
-
-    add_render_arguments(parser)    
-
-    parsed_args, unparsed_args = parser.parse_known_args()
-    return parsed_args, unparsed_args
-
-def sigint_handler(*args):
-    QApplication.quit()
+  app.exec()
 
 
-def main():
-    signal.signal(signal.SIGINT, sigint_handler)
-    torch.set_printoptions(precision=5, sci_mode=False, linewidth=120)
+class Viewer:
+  def __init__(self):
+    pass
 
+  def quit(self):
+    pass
 
-    parsed_args, unparsed_args = process_cl_args()
-    workspace = load_workspace(parsed_args.model_path)
+  def update_gaussians(self, gaussians:Gaussians):
+    pass
 
-    if parsed_args.model is None:
-      parsed_args.model = workspace.latest_iteration()
-
-    gaussians = workspace.load_model(parsed_args.model)
-    print(f"Loaded model {parsed_args.model}: {gaussians}")
-
-    ti.init(ti.gpu, offline_cache=True, debug=parsed_args.debug, device_memory_GB=0.1)
-
-
-    qt_args = sys.argv[:1] + unparsed_args
-    app = QApplication(qt_args)
-    
-
-    window = QtWidgets.QMainWindow()
-
-    renderer = renderer_from_args(make_renderer_args(parsed_args))
-    print(renderer)
-    scene_widget = SceneWidget(
-       settings=Settings(device=parsed_args.device),
-       renderer = renderer
-    )
-    
-    scene_widget.load_workspace(workspace, gaussians)
-
-    window.setCentralWidget(scene_widget)
-
-    window.show()
-    sys.exit(app.exec())
-
+  def __enter__(self):
+    return self
   
-if __name__ == '__main__':
-  main()
+  def __exit__(self, exc_type, exc_value, traceback):
+    pass
+
+  def start(self):
+    pass
+
+  def close(self):
+    pass
+
+class ViewerProcess(Viewer):
+  def __init__(self, workspace:Workspace, 
+               gaussians:Gaussians, 
+               settings:Settings, 
+               queue_size=1):
+    
+    assert get_start_method() == "spawn", "For ViewerProcess, torch multiprocessing must be started with spawn"
+    self.update_queue = Queue(queue_size)
+    self.view_process = Process(target=run_process, 
+                           args=(workspace, self.update_queue, gaussians, settings))
+
+    
+  def quit(self):
+    self.update_queue.put(None)
+    self.join()
+
+  def update_gaussians(self, gaussians:Gaussians):
+    self.update_queue.put(gaussians)
+
+  def __enter__(self):
+    self.start()
+    return self
+  
+  def __exit__(self, exc_type, exc_value, traceback):
+    self.join()
+
+  def start(self):
+    self.view_process.start()
+
+  def join(self):
+    while not self.update_queue.empty():
+      pass
+
+    self.view_process.join()
+    self.update_queue.close()
+
+
+

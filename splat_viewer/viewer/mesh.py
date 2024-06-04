@@ -110,8 +110,13 @@ def make_bounding_box(gaussians: Gaussians):
     all_vertices.append(vertices)
     all_indices.append(edges)
 
-  all_vertices = np.vstack(all_vertices)
-  all_indices = np.vstack(all_indices)
+  if not all_vertices:
+    all_vertices = np.empty((0, 3))
+    all_indices = np.empty((0, 2), dtype=np.uint32)
+
+  else:
+    all_vertices = np.vstack(all_vertices)
+    all_indices = np.vstack(all_indices)
 
   primitive = pyrender.Primitive(
     positions=all_vertices,

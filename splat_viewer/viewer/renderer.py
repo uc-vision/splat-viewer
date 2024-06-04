@@ -38,6 +38,9 @@ def get_cv_colormap(cmap):
 class PyrenderScene:
   
   def __init__(self,  workspace:Workspace, gaussians: Gaussians):
+    self.bbox_node = None
+    self.renderer = None
+
     self.seed_points = workspace.load_seed_points()
     self.initial_scene = pyrender.Scene()
 
@@ -48,14 +51,20 @@ class PyrenderScene:
 
     self.cameras = make_camera_markers(workspace.cameras, workspace.camera_extent / 50.)
     self.initial_scene.add(self.cameras)
+    
+    self.update_gaussians(gaussians)
+
+
+  
+  def update_gaussians(self, gaussians:Gaussians):
+    if self.bbox_node is not None:
+      self.initial_scene.remove_node(self.bbox_node)
 
     if gaussians.instance_label is not None:
-      self.bounding_boxes = make_bounding_box(gaussians)
-      self.initial_scene.add(self.bounding_boxes)
+      bounding_boxes = make_bounding_box(gaussians)
+      self.bbox_node = self.initial_scene.add(bounding_boxes)
     else:
-      self.bounding_boxes = None
-
-    self.renderer = None
+      self.bbox_node = None
 
 
   def create_renderer(self, camera, settings:Settings):
@@ -75,8 +84,8 @@ class PyrenderScene:
     self.cameras.is_visible = settings.show.cameras
     self.points.is_visible = settings.show.initial_points
 
-    if self.bounding_boxes is not None:
-      self.bounding_boxes.is_visible = settings.show.bounding_boxes
+    if self.bbox_node is not None:
+      self.bbox_node.mesh.is_visible = settings.show.bounding_boxes
 
     node = to_pyrender_camera(camera)
     scene =  self.initial_scene
@@ -105,14 +114,12 @@ class RenderState:
   def updated(self, gaussians:Gaussians) -> Gaussians:
 
     if self.as_points:
-      gaussians = gaussians.with_fixed_scale(0.001)
+
+      alpha_logit = torch.full_like(gaussians.alpha_logit, 10.0)
+      gaussians = gaussians.with_fixed_scale(0.001).replace(alpha_logit=alpha_logit)
 
     if self.cropped and gaussians.foreground is not None:
       gaussians = gaussians[gaussians.foreground.squeeze()]
-
-    if self.filtered_points and gaussians.label is not None:
-      gaussians = gaussians[gaussians.label[:, 0] > 0.6]
-
 
     if self.color_instances and gaussians.instance_label is not None:
     
@@ -120,6 +127,7 @@ class RenderState:
       valid_label = gaussians.instance_label[instance_mask].squeeze()
 
       unique_instance_labels = torch.unique(valid_label)
+
       color_space = torch.rand(unique_instance_labels.shape[0], 3, device=instance_mask.device)
 
       colors = gaussians.get_colors()
@@ -128,6 +136,9 @@ class RenderState:
       colors[instance_mask] = point_colors
       
       gaussians = gaussians.with_colors(colors)
+
+    if self.filtered_points and gaussians.label is not None:
+      gaussians = gaussians[gaussians.label.squeeze() > 0.3]
 
     return gaussians
 
@@ -161,7 +172,8 @@ class WorkspaceRenderer:
   def update_gaussians(self, gaussians:Gaussians):
     self.gaussians = gaussians
     self.packed_gaussians = None
-
+    
+    self.pyrender_scene.update_gaussians(gaussians)
 
   def unproject_mask(self, camera:FOVCamera, 
                 mask:torch.Tensor, alpha_multiplier=1.0, threshold=1.0):
