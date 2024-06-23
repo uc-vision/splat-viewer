@@ -64,7 +64,7 @@ def to_plydata(gaussians:Gaussians) -> plyfile.PlyData:
     vertex['label'] = gaussians.label[:, 0].numpy()
 
   if gaussians.instance_label is not None:
-    vertex['instance_label'] = gaussians.instance_label[0].numpy()
+    vertex['instance_label'] = gaussians.instance_label[:, 0].numpy()
 
   el = plyfile.PlyElement.describe(vertex, 'vertex')
   return plyfile.PlyData([el])
