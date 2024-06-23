@@ -124,18 +124,13 @@ class RenderState:
     if self.color_instances and gaussians.instance_label is not None:
     
       instance_mask = (gaussians.instance_label >= 0).squeeze()
-      valid_label = gaussians.instance_label[instance_mask].squeeze()
+      valid_instances = gaussians.instance_label[instance_mask].squeeze().long()
 
-      unique_instance_labels = torch.unique(valid_label)
+      unique_instance_labels = torch.unique(valid_instances)
 
-      color_space = torch.rand(unique_instance_labels.shape[0], 3, device=instance_mask.device)
+      color_space = (torch.randn(unique_instance_labels.shape[0], 3, device=instance_mask.device) * 2).sigmoid()
 
-      colors = gaussians.get_colors()
-
-      point_colors = color_space[valid_label]
-      colors[instance_mask] = point_colors
-      
-      gaussians = gaussians.with_colors(colors)
+      gaussians = gaussians.with_colors(color_space[valid_instances], instance_mask)
 
     if self.filtered_points and gaussians.label is not None:
       gaussians = gaussians[gaussians.label.squeeze() > 0.3]

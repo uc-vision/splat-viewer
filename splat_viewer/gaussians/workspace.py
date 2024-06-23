@@ -68,6 +68,7 @@ def find_clouds(p:Path):
             if d.is_dir() and (file :=d / "point_cloud.ply").exists()
   }
 
+
   if len(clouds) == 0:
     raise FileNotFoundError(f"No point clouds found in {str(p)}")
 
@@ -83,6 +84,10 @@ def load_workspace(model_path:Path | str) -> Workspace:
   
   cloud_files = find_clouds(cloud_path)
 
+  transfer = model_path / "transfer" / "clustered.ply"
+  if transfer.exists():
+    cloud_files["transfer"] = transfer
+  
   cameras = load_camera_json(model_path / "cameras.json")
   cameras = natsorted(cameras.values(), key=lambda x: x.image_name)
 

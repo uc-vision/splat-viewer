@@ -21,19 +21,23 @@ def main():
   print("Using point cloud {}".format(cloud_file))
 
   camera_file = args.model_path/"cameras.json"
-  scene_file = args.model_path/"scene.json"
   input_file = args.model_path/"input.ply"
+
+  scene_file = args.model_path/"scene.json"
   cfg_file = args.model_path/"cfg_args"
   
   files:List[Path] = [camera_file, input_file, cloud_file, cfg_file, scene_file]
-  
-  for file in files:
-    if not file.exists():
-      raise Exception(f"File not found {file}")
 
+  for file in [camera_file, input_file]:
+    if not file.exists():
+      raise Exception("Missing file {}".format(file))
+  
   
   args.output.mkdir(parents=True, exist_ok=True)
   for file in files:
+    if not file.exists():
+      continue
+
     filename = file.relative_to(args.model_path)
     out_filename = args.output/filename
 

@@ -120,9 +120,12 @@ class Gaussians():
   
 
 
-  def with_colors(self, colors):
+  def with_colors(self, colors, index=None):
     sh_feature = self.sh_feature.clone()
-    sh_feature[:, :, 0] = rgb_to_sh(colors)
+    if index is None:
+      sh_feature[:, :, 0] = rgb_to_sh(colors)
+    else:
+      sh_feature[index, :, 0] = rgb_to_sh(colors)
 
     return self.replace(sh_feature=sh_feature)
   
