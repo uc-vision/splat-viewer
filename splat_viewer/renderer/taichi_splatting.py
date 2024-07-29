@@ -15,7 +15,7 @@ def to_camera_params(camera:FOVCamera, device=torch.device("cuda:0")):
 
   params = CameraParams(
     T_camera_world=torch.from_numpy(camera.camera_t_world),
-    T_image_camera=torch.from_numpy(camera.intrinsic),
+    projection=torch.tensor([*camera.focal_length, *camera.principal_point]),
     
     image_size=tuple(camera.image_size),
     near_plane=camera.near,
