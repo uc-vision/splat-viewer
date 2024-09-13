@@ -8,7 +8,6 @@ from typing import Tuple
 
 def add_render_arguments(parser):
   parser.add_argument("--tile_size", type=int, default=16, help="tile size for rasterizer")
-  parser.add_argument("--no_tight_culling", action="store_true", help="disable tight (OBB) culling")
   parser.add_argument("--depth16", action="store_true", help="use 16 bit depth in sorting (default is 32 bit)")
 
   parser.add_argument("--taichi", action="store_true", help="use taichi renderer")
@@ -45,7 +44,6 @@ def renderer_from_args(args:RendererArgs):
   else:
     from splat_viewer.renderer.taichi_splatting import GaussianRenderer
     return GaussianRenderer(tile_size=args.tile_size, 
-                                 tight_culling=not args.no_tight_culling,
                                  use_depth16=args.depth16,
                                  pixel_stride=args.pixel_stride) 
 
@@ -61,7 +59,6 @@ def make_renderer_args(args):
 
   return RendererArgs(
     tile_size=args.tile_size,
-    no_tight_culling=args.no_tight_culling,
     depth16=args.depth16,
     pixel_stride=pixel_stride,
     impl=impl

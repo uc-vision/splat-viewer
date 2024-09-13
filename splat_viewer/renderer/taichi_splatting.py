@@ -25,15 +25,14 @@ def to_camera_params(camera:FOVCamera, device=torch.device("cuda:0")):
   return params.to(device=device, dtype=torch.float32)
     
 
-
-
 class GaussianRenderer:
   @dataclass 
   class Config:
     tile_size : int = 16
-    tight_culling : bool = True
     use_depth16 : bool = False
     pixel_stride : Tuple[int, int] = (2, 2)
+    antialias : bool = True
+    blur_cov: float = 0.3
 
   def __init__(self, **kwargs):
     self.config = GaussianRenderer.Config(**kwargs)
@@ -52,8 +51,11 @@ class GaussianRenderer:
     
     config = renderer.RasterConfig(
       tile_size=self.config.tile_size,
-      tight_culling=self.config.tight_culling,
       pixel_stride=self.config.pixel_stride,
+      antialias=self.config.antialias,
+      blur_cov=self.config.blur_cov,
+      saturate_threshold=0.5
+
     )
       
     rendering = renderer.render_gaussians(
@@ -64,8 +66,9 @@ class GaussianRenderer:
       use_depth16=self.config.use_depth16,
       render_depth=render_depth)
     
-    
-    return Rendering(image=rendering.image, 
+    weight = 1 / (rendering.image_weight + 1e-6)
+
+    return Rendering(image=rendering.image * weight.unsqueeze(-1), 
                             depth=rendering.depth, 
                             depth_var=rendering.depth_var, 
                              camera=camera)

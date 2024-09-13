@@ -28,9 +28,12 @@ def init_viewer(workspace:Workspace,
     gaussians = workspace.load_model(workspace.latest_iteration())
   widget.load_workspace(workspace, gaussians)
 
+  window = QtWidgets.QMainWindow()
+  window.setCentralWidget(widget)
+  window.show()
 
-  widget.show()
-  return app, widget
+  # widget.show()
+  return app, window, widget
 
 def show_workspace(workspace:Workspace, 
                    gaussians:Gaussians = None, 
@@ -39,7 +42,7 @@ def show_workspace(workspace:Workspace,
   signal.signal(signal.SIGINT, sigint_handler)
 
   print(f"Showing model from {workspace.model_path}: {gaussians}")
-  app, _ = init_viewer(workspace, gaussians, settings)
+  app, _, _ = init_viewer(workspace, gaussians, settings)
   app.exec()
 
 
@@ -59,7 +62,7 @@ def run_process(workspace:Workspace,
   from splat_viewer.viewer.viewer import sigint_handler
   signal.signal(signal.SIGINT, sigint_handler)
 
-  app, widget = init_viewer(workspace, gaussians, settings)
+  app, _, widget = init_viewer(workspace, gaussians, settings)
 
 
   def on_timer(): 

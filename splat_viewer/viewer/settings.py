@@ -41,6 +41,7 @@ class Settings:
   snapshot_size: Tuple[int, int] = (8192, 6144) 
   snapshot_tile: int = 1024
 
+  depth_scale : float = 1.0 # how much to scale the depth values for display
 
   device : str = 'cuda:0'
   
