@@ -29,7 +29,7 @@ class Interaction():
 
 
   def pop(self):    
-    if self._child is not None:
+    if self.has_child:
       child = self._child
       self._child = None
       child._deactivate()
@@ -38,30 +38,33 @@ class Interaction():
   def _activate(self):
     self.on_activate()
 
-    if self._child is not None:
+    if self.has_child:
       self._child._activate()
 
     self.active = True
 
 
   def _deactivate(self):
-    if self._child is not None:
+    if self.has_child:
       child = self._child
       self._child = None
       child._deactivate()
 
     self.on_deactivate()
 
+  @property
+  def has_child(self):
+    return self._child is not None
 
   def trigger_event(self, event: QEvent) -> bool:
-    if self._child is not None:
+    if self.has_child:
       if self._child.trigger_event(event):
         return True
       
     return self.event(event) 
   
   def _update(self, dt:float) -> bool:
-    if self._child is not None:
+    if self.has_child:
       if self._child._update(dt):
         return True
     
@@ -86,7 +89,8 @@ class Interaction():
     return False
     
   def trigger_paint(self, event: QtGui.QPaintEvent, view_changed:bool) -> bool:
-    if self._child is not None:
+
+    if self.has_child:
       if self._child.trigger_paint(event, view_changed):
         return True
       
@@ -134,7 +138,9 @@ class Interaction():
     from .scene_widget import SceneWidget
     return SceneWidget.instance
   
-  
+  @property
+  def device(self):
+    return self.settings.device
   
   @property
   def settings(self) -> Settings: 

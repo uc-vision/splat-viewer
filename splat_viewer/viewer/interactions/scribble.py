@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import math
 from typing import Callable, Tuple
 
@@ -20,22 +21,35 @@ def in_box(positions:torch.Tensor, lower:torch.Tensor, upper:np.array):
   return torch.nonzero(mask, as_tuple=True)[0]
 
 
+@dataclass
+class Instance:
+  color:tuple[float, float, float]
+  label:int
+  points:torch.Tensor
+
 class ScribbleGeometric(Interaction):
-  def __init__(self):
+  def __init__(self, color:tuple[float, float, float] = (1, 0, 0), label:int = 0):
     super(ScribbleGeometric, self).__init__()
 
     self.drawing = False
 
-    self.current_label = 0
-    self.current_points = None
+    self.current_label = label
+    self.current_points = torch.empty(0, dtype=torch.int64, device=self.device)
 
-    self.color = torch.tensor([1, 0, 0], dtype=torch.float32)
+    self.color = color
 
   @property
   def ready(self):
     return bool(self.modifiers & Qt.ControlModifier)
   
-
+  @property
+  def instance(self):
+    return Instance(self.color, self.current_label, self.current_points)
+  
+  @property
+  def valid(self):
+    return len(self.current_points) > 0
+  
   def mousePressEvent(self, event: QtGui.QMouseEvent):
     if event.button() == Qt.LeftButton and event.modifiers() & Qt.ControlModifier:
       self.drawing = True
@@ -75,10 +89,6 @@ class ScribbleGeometric(Interaction):
       self.update_setting(brush_size = np.clip(self.settings.brush_size * factor, 1, 100))
       return True
 
-  def keyPressEvent(self, event: QtGui.QKeyEvent):
-
-    
-    return super().keyPressEvent(event)
 
   def paintEvent(self, event: QtGui.QPaintEvent, dirty:bool):
     if self.ready:

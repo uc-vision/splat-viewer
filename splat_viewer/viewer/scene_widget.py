@@ -18,6 +18,7 @@ from splat_viewer.gaussians.workspace import Workspace
 from splat_viewer.gaussians import Gaussians
 from splat_viewer.viewer.interactions.animate import  animate_to_loop
 from splat_viewer.viewer.interaction import Interaction
+from splat_viewer.viewer.interactions.label_instances import LabelInstances
 from splat_viewer.viewer.interactions.scribble import ScribbleGeometric
 from splat_viewer.viewer.renderer import WorkspaceRenderer
 
@@ -34,28 +35,25 @@ class SceneWidget(QtWidgets.QWidget):
 
     SceneWidget.instance = self
 
-    self.camera_state = Interaction()
-    self.interaction = ScribbleGeometric()
-
     self.camera = SceneCamera()
     self.settings = settings
     self.renderer = renderer
 
-    self.setFocusPolicy(Qt.StrongFocus)
-    self.setMouseTracking(True)
-
-    
     self.cursor_pos = (0, 0)
     self.modifiers = Qt.NoModifier
     self.keys_down = set()
 
     self.dirty = True
 
+    self.camera_state = Interaction()
+    self.interaction = LabelInstances()
+
+    self.setFocusPolicy(Qt.StrongFocus)
+    self.setMouseTracking(True)
+
     self.timer = QtCore.QTimer(self)
     self.timer.timeout.connect(self.update)
     self.timer.start(1000 / Settings.update_rate)
-
-
 
   def update_setting(self, **kwargs):
     self.settings = replace(self.settings, **kwargs)
@@ -203,12 +201,7 @@ class SceneWidget(QtWidgets.QWidget):
       self.update_setting(view_mode = k)
       return True
     
-    
-    elif event.key() == Qt.Key_Space:
-      self.keypoints.append(self.camera.view_matrix)
-
-    if event.key() == Qt.Key_Space and event.modifiers() & Qt.ControlModifier:  
-      self.write_keypoints()
+  
 
     elif event.key() == Qt.Key_Return:
       if event.modifiers() & Qt.ShiftModifier:
@@ -216,9 +209,7 @@ class SceneWidget(QtWidgets.QWidget):
           self.window().showNormal()
         else:
           self.window().showFullScreen()
-      elif len(self.keypoints) > 0:
-        animate_to_loop(self.camera_state, 
-                        self.camera.view_matrix, self.keypoints)
+
 
     return super().keyPressEvent(event)
   
@@ -332,7 +323,7 @@ class SceneWidget(QtWidgets.QWidget):
 
       painter.drawImage(0, 0, image)
 
-      self.interaction.paintEvent(event, dirty)
+      self.interaction.trigger_paint(event, dirty)
       
             
   def snapshot_file(self):
