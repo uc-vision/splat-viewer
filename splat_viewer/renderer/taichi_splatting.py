@@ -31,7 +31,7 @@ class GaussianRenderer:
   @dataclass 
   class Config:
     tile_size : int = 16
-    tight_culling : bool = True
+    antialias : bool = True
     use_depth16 : bool = False
     pixel_stride : Tuple[int, int] = (2, 2)
 
@@ -52,7 +52,7 @@ class GaussianRenderer:
     
     config = renderer.RasterConfig(
       tile_size=self.config.tile_size,
-      tight_culling=self.config.tight_culling,
+      antialias=self.config.antialias,
       pixel_stride=self.config.pixel_stride,
     )
       

@@ -43,10 +43,11 @@ class Settings:
 
 
   device : str = 'cuda:0'
-  
   bg_color : Tuple[float, float, float] = (1, 1, 1)
 
   show : Show = Show()
   view_mode : ViewMode = ViewMode.Normal
+
+  brush_size : int = 10
   
 

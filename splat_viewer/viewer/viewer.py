@@ -35,6 +35,11 @@ def init_viewer(workspace:Workspace,
 def show_workspace(workspace:Workspace, 
                    gaussians:Gaussians = None, 
                    settings:Settings=Settings()):
+  
+  import taichi as ti
+  ti.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
+
+
   from splat_viewer.viewer.viewer import sigint_handler
   signal.signal(signal.SIGINT, sigint_handler)
 
@@ -60,7 +65,6 @@ def run_process(workspace:Workspace,
   signal.signal(signal.SIGINT, sigint_handler)
 
   app, widget = init_viewer(workspace, gaussians, settings)
-
 
   def on_timer(): 
     if not update_queue.empty():

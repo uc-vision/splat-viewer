@@ -6,7 +6,7 @@ from PySide6.QtCore import QEvent
 from beartype import beartype
 import numpy as np
 import torch
-from splat_viewer.gaussians.data_types import Rendering
+from splat_viewer.gaussians.data_types import Gaussians, Rendering
 
 from splat_viewer.viewer.settings import Settings
 
@@ -34,10 +34,6 @@ class Interaction():
       self._child = None
       child._deactivate()
 
-  def transition(self, interaction:Optional['Interaction']):
-    self.pop()
-    if interaction is not None:
-      self.push(interaction)
 
   def _activate(self):
     self.on_activate()
@@ -180,6 +176,9 @@ class Interaction():
                         ) -> Tuple[np.ndarray, float]:
       return self.scene_widget.unproject_radius(p, depth, radius)
   
+  def set_dirty(self):
+    self.scene_widget.set_dirty()
+  
   @property
   def depth_map(self):
     return self.scene_widget.depth_map
@@ -197,8 +196,11 @@ class Interaction():
     return self.scene_widget.renderer
   
   @property
-  def gaussians(self):
-    return self.scene_widget.renderer.gaussians
+  def gaussians(self) -> Gaussians:
+    return self.scene_widget.gaussians
+  
+  def update_gaussians(self, gaussians:Gaussians):
+    return self.scene_widget.update_gaussians(gaussians)
 
   def update_setting(self, **kwargs):
     self.scene_widget.update_setting(**kwargs)
