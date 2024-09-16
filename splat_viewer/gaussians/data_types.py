@@ -63,6 +63,10 @@ class Gaussians():
   def packed(self):
     return torch.cat([self.position, self.log_scaling, self.rotation, self.alpha_logit], dim=-1)
   
+  @property
+  def device(self):
+    return self.position.device 
+  
   def to_gaussians3d(self):
     return Gaussians3D(
       position=self.position,
@@ -118,6 +122,9 @@ class Gaussians():
   def get_rotation_matrix(self):
     return roma.unitquat_to_rotmat(self.rotation)
   
+  def set_colors(self, color: tuple[float, float, float], indexes: Optional[torch.Tensor]):
+    colors = torch.tensor(color, device=self.device).expand(indexes.shape[0], -1)  
+    return self.with_colors(colors, indexes)
 
 
   def with_colors(self, colors, index=None):
@@ -126,8 +133,13 @@ class Gaussians():
       sh_feature[:, :, 0] = rgb_to_sh(colors)
     else:
       sh_feature[index, :, 0] = rgb_to_sh(colors)
-
     return self.replace(sh_feature=sh_feature)
+  
+  def with_labels(self, labels, index=None):
+    if index is None:
+      return self.replace(label=labels)
+    else:
+      return self.replace(label=self.label[index])
   
   def with_sh_degree(self, sh_degree:int):
     assert sh_degree >= 0

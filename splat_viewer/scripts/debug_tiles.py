@@ -3,7 +3,6 @@ import argparse
 from pathlib import Path
 import torch
 from tqdm import tqdm
-import math
 
 from splat_viewer.gaussians.data_types import Gaussians
 from splat_viewer.gaussians.workspace import load_workspace
@@ -40,7 +39,7 @@ def main():
 
   parser.add_argument("--tile_size", type=int, default=16, help="tile size for rasterizer")
   parser.add_argument("--image_size", type=int, default=None, help="resize longest edge of camera image sizes")
-  parser.add_argument("--no_tight_culling", action="store_true", help="disable tight culling")
+  parser.add_argument("--no_antialias", action="store_true", help="disable analytic antialiasing")
   parser.add_argument("--debug", action="store_true", help="enable taichi debug mode")
 
   args = parser.parse_args()
@@ -64,7 +63,7 @@ def main():
     
   config = RasterConfig(
     tile_size=args.tile_size, 
-    tight_culling=not args.no_tight_culling)
+    antialias=not args.no_antialias)
 
   packed = gaussians.packed()
 

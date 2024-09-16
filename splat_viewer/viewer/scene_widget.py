@@ -18,6 +18,7 @@ from splat_viewer.gaussians.workspace import Workspace
 from splat_viewer.gaussians import Gaussians
 from splat_viewer.viewer.interactions.animate import  animate_to_loop
 from splat_viewer.viewer.interaction import Interaction
+from splat_viewer.viewer.interactions.scribble import ScribbleGeometric
 from splat_viewer.viewer.renderer import WorkspaceRenderer
 
     
@@ -34,7 +35,7 @@ class SceneWidget(QtWidgets.QWidget):
     SceneWidget.instance = self
 
     self.camera_state = Interaction()
-    self.interaction = Interaction()
+    self.interaction = ScribbleGeometric()
 
     self.camera = SceneCamera()
     self.settings = settings
@@ -81,10 +82,11 @@ class SceneWidget(QtWidgets.QWidget):
     self.show()
 
   def update_gaussians(self, gaussians:Gaussians):
-
     self.workspace_renderer.update_gaussians(gaussians.to(self.settings.device))
     self.dirty = True
 
+  def set_dirty(self):
+    self.dirty = True
 
   @property
   def camera_path_file(self):
@@ -329,6 +331,8 @@ class SceneWidget(QtWidgets.QWidget):
       
 
       painter.drawImage(0, 0, image)
+
+      self.interaction.paintEvent(event, dirty)
       
             
   def snapshot_file(self):
