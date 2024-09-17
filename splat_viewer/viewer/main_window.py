@@ -8,56 +8,70 @@ from PySide6.QtWidgets import QMainWindow
 import qtawesome as qta
 
 from splat_viewer.viewer.scene_widget import SceneWidget, Settings
+from splat_viewer.viewer.settings import ViewMode
 
 
-class MainWindow(QMainWindow):
+def create_window(scene_widget:SceneWidget):
+  ui_path = Path(__file__).parent.parent / "ui"
 
-    @staticmethod
-    def load(scene_widget:SceneWidget):
-        ui_path = Path(__file__).parent.parent / "ui"
+  loader = QUiLoader()
+  window = loader.load(ui_path / "main_window.ui")
 
-        loader = QUiLoader()
-        window = loader.load(ui_path / "main_window.ui")
+  show_checkboxes = dict(
+      initial_points = window.show_initial_points,
+      cameras = window.show_cameras,
+      cropped = window.show_cropped,
+      bounding_boxes = window.show_bounding_boxes,
+      filtered_points = window.show_filtered_points,
+      color_instances = window.show_color_instances
+  )
 
-        window.initialise(scene_widget)
+  def update_setting(key, value):
+      scene_widget.update_setting(key, value)
 
-        return window
+  def on_settings_changed(settings:Settings):
+    for key, cb in show_checkboxes.items():
+        checked = getattr(settings.show, key)
+        if checked != cb.isChecked():
+            cb.setChecked(checked)
 
-    def settings_changed(self, settings:Settings):
-        for key, cb in self.show_checkboxes.items():
-            checked = getattr(settings.show, key)
-            if checked != cb.isChecked():
-                cb.setChecked(checked)
+    if settings.view_mode.name != window.view_mode.currentText():
+      window.view_mode.setCurrentText(settings.view_mode.name)
+      
 
-    def initialise(self, scene_widget:SceneWidget):
-        
+  window.setWindowIcon(QIcon(qta.icon('mdi.cube-scan')))
+  window.actionInstances.setIcon(QIcon(qta.icon('mdi.draw')))
+  window.actionEdit_Foreground.setIcon(QIcon(qta.icon('mdi.eraser')))
 
-        self.setWindowIcon(QIcon(qta.icon('mdi.cube-scan')))
-        self.actionInstances.setIcon(QIcon(qta.icon('mdi.draw')))
-        self.actionEdit_Foreground.setIcon(QIcon(qta.icon('mdi.eraser')))
 
-        self.show_checkboxes = dict(
-            initial_points = self.show_initial_points,
-            cameras = self.show_cameras,
-            cropped = self.show_cropped,
-            bounding_boxes = self.show_bounding_boxes,
-            filtered_points = self.show_filtered_points,
-            color_instances = self.show_color_instances
-        )
+  def show(key:str, checked:bool):
+    show = replace(scene_widget.settings.show, **{key: checked})
+    scene_widget.update_setting(show=show)
+                    
+  def on_checked(key):
+      return lambda checked: show(key, checked)
+  
+  for key, value in show_checkboxes.items():
+    # Need to use the funciton otherwise 'key' is not captured properly
+    value.stateChanged.connect(on_checked(key))
 
-        def show(key:str, checked:bool):
-            show = replace(self.scene_widget.settings.show, **{key: checked})
-            self.scene_widget.update_setting(show=show)
-                        
+  scene_widget.settings_changed.connect(on_settings_changed)
 
-        for key, value in self.show_checkboxes.items():
-            value.stateChanged.connect(lambda checked: show(key, checked))
 
-        scene_widget.settings_changed.connect(self.settings_changed)
+  for mode in ViewMode:
+    window.view_mode.addItem(mode.name)
 
-        self.setCentralWidget(scene_widget)
+  def on_view_mode_changed(index):
+    mode = ViewMode[window.view_mode.currentText()]
+    scene_widget.update_setting(view_mode=mode)
 
-    def update_setting(self, key, value):
-        self.scene_widget.update_setting(key, value)
+  window.view_mode.currentIndexChanged.connect(on_view_mode_changed)
 
-    
+
+  window.setCentralWidget(scene_widget)
+
+  return window
+
+
+
+  

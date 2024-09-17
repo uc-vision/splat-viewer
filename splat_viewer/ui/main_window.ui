@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>850</width>
-    <height>607</height>
+    <width>1536</width>
+    <height>1280</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -39,7 +39,7 @@
      <item>
       <widget class="QTabWidget" name="tabWidget">
        <property name="currentIndex">
-        <number>2</number>
+        <number>1</number>
        </property>
        <property name="tabBarAutoHide">
         <bool>true</bool>
@@ -128,7 +128,7 @@
             </spacer>
            </item>
            <item>
-            <widget class="QComboBox" name="comboBox"/>
+            <widget class="QComboBox" name="view_mode"/>
            </item>
           </layout>
          </item>
@@ -165,7 +165,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QSlider" name="horizontalSlider">
+            <widget class="QSlider" name="move_speed">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
@@ -186,7 +186,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QSlider" name="horizontalSlider_2">
+            <widget class="QSlider" name="animate_speed">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
@@ -207,7 +207,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QSlider" name="horizontalSlider_3">
+            <widget class="QSlider" name="zoom_rate">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
              </property>
@@ -240,8 +240,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>850</width>
-     <height>24</height>
+     <width>1536</width>
+     <height>23</height>
     </rect>
    </property>
   </widget>
@@ -267,7 +267,8 @@
     <bool>true</bool>
    </property>
    <property name="icon">
-    <iconset theme="mdi-brush"/>
+    <iconset theme="mdi-brush">
+     <normaloff>../../../../.designer/backup</normaloff>../../../../.designer/backup</iconset>
    </property>
    <property name="text">
     <string>Annotate Instances</string>

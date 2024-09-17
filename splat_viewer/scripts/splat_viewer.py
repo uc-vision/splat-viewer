@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QApplication
 from splat_viewer.gaussians.workspace import load_workspace
 from splat_viewer.renderer.arguments import  add_render_arguments, make_renderer_args, renderer_from_args
 
-from splat_viewer.viewer.main_window import MainWindow
+from splat_viewer.viewer.main_window import create_window
 
 import signal
 import taichi as ti
@@ -61,9 +61,9 @@ def main():
        renderer = renderer
     )
 
-    window = MainWindow.load(scene_widget)
+    window = create_window(scene_widget)
     
-    window.scene_widget.load_workspace(workspace, gaussians)
+    scene_widget.load_workspace(workspace, gaussians)
     window.show()
     
     sys.exit(app.exec())

@@ -29,6 +29,8 @@ from .settings import Settings, ViewMode
 
 
 class SceneWidget(QtWidgets.QWidget):
+  settings_changed = QtCore.Signal(Settings)
+  
   def __init__(self, renderer:GaussianRenderer, 
                settings:Settings = Settings(),
                parent:Optional[QtWidgets.QWidget]=None):
@@ -57,7 +59,6 @@ class SceneWidget(QtWidgets.QWidget):
     self.timer.timeout.connect(self.update)
     self.timer.start(1000 / Settings.update_rate)
 
-    self.settings_changed = QtCore.Signal(Settings)
 
 
   def update_setting(self, **kwargs):
