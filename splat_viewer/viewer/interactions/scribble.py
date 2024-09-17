@@ -67,14 +67,8 @@ class ScribbleGeometric(Interaction):
     p, r = self.unproject_radius(cursor_pos, depth, self.settings.brush_size)
     idx = in_sphere(self.gaussians.position, self.from_numpy(p), r)
 
-    if self.current_points is None:
-      self.current_points = idx
-    else:
-      self.current_points = torch.cat([self.current_points, idx]).unique()
-
-      self.update_gaussians(self.gaussians.set_colors(self.color, self.current_points))
-
-    self.set_dirty()
+    self.current_points = torch.cat([self.current_points, idx]).unique()
+    self.update_gaussians(self.gaussians.set_colors(self.color, self.current_points))
 
 
   def mouseMoveEvent(self, event: QtGui.QMouseEvent):
@@ -86,7 +80,7 @@ class ScribbleGeometric(Interaction):
       dy = event.pixelDelta().y()
       factor = math.pow(1.0015, dy)
 
-      self.update_setting(brush_size = np.clip(self.settings.brush_size * factor, 1, 100))
+      self.update_setting(brush_size = np.clip(self.settings.brush_size * factor, 1, 200))
       return True
 
 

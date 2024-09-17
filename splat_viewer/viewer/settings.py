@@ -33,7 +33,6 @@ class Settings:
   animate_pausing: float = 0.4
 
   zoom_discrete : float = 1.2
-  zoom_continuous : float = 0.1
 
   drag_speed : float = 1.0
   point_size : float = 2.0

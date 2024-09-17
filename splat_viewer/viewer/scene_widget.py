@@ -19,8 +19,7 @@ from splat_viewer.gaussians import Gaussians
 from splat_viewer.viewer.interactions.animate import  animate_to_loop
 from splat_viewer.viewer.interaction import Interaction
 from splat_viewer.viewer.interactions.label_instances import LabelInstances
-from splat_viewer.viewer.interactions.scribble import ScribbleGeometric
-from splat_viewer.viewer.renderer import WorkspaceRenderer
+from splat_viewer.viewer.renderer import WorkspaceRenderer, GaussianRenderer
 
     
 from .interactions.fly_control import FlyControl
@@ -30,7 +29,10 @@ from .settings import Settings, ViewMode
 
 
 class SceneWidget(QtWidgets.QWidget):
-  def __init__(self, settings:Settings = Settings(), renderer=None, parent=None):
+  def __init__(self, renderer:GaussianRenderer, 
+               settings:Settings = Settings(),
+               parent:Optional[QtWidgets.QWidget]=None):
+    
     super(SceneWidget, self).__init__(parent=parent)
 
     SceneWidget.instance = self
@@ -55,8 +57,13 @@ class SceneWidget(QtWidgets.QWidget):
     self.timer.timeout.connect(self.update)
     self.timer.start(1000 / Settings.update_rate)
 
+    self.settings_changed = QtCore.Signal(Settings)
+
+
   def update_setting(self, **kwargs):
     self.settings = replace(self.settings, **kwargs)
+
+    self.settings_changed.emit(self.settings)
     self.dirty = True
 
   @property 

@@ -1,17 +1,20 @@
 import argparse
 import sys
 
-from PySide6 import  QtWidgets
 from PySide6.QtWidgets import QApplication
+
 
 from splat_viewer.gaussians.workspace import load_workspace
 from splat_viewer.renderer.arguments import  add_render_arguments, make_renderer_args, renderer_from_args
 
-from splat_viewer.viewer.scene_widget import SceneWidget, Settings
+from splat_viewer.viewer.main_window import MainWindow
 
 import signal
 import taichi as ti
 import torch
+
+from splat_viewer.viewer.scene_widget import SceneWidget
+from splat_viewer.viewer.settings import Settings
 
 def process_cl_args():
     parser = argparse.ArgumentParser()
@@ -49,21 +52,19 @@ def main():
 
     qt_args = sys.argv[:1] + unparsed_args
     app = QApplication(qt_args)
-    
-
-    window = QtWidgets.QMainWindow()
-
+  
     renderer = renderer_from_args(make_renderer_args(parsed_args))
     print(renderer)
+    
     scene_widget = SceneWidget(
        settings=Settings(device=parsed_args.device),
        renderer = renderer
     )
+
+    window = MainWindow.load(scene_widget)
     
-    scene_widget.load_workspace(workspace, gaussians)
-
-    window.setCentralWidget(scene_widget)
-
+    window.scene_widget.load_workspace(workspace, gaussians)
     window.show()
+    
     sys.exit(app.exec())
 
