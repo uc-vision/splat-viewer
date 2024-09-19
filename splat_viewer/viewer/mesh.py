@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 import math
+import beartype
 from beartype.typing import List
 import trimesh
 
@@ -61,10 +63,14 @@ def make_camera_markers(cameras:List[FOVCamera], scale:float):
 
   return markers
 
+@dataclass
+class BoundingBox:
+  lower: torch.Tensor
+  upper: torch.Tensor
 
-def extract_instance_corner_points(gaussians: Gaussians):
-
-  corner_points = []
+@beartype
+def instance_boxes(gaussians: Gaussians) -> List[BoundingBox]:
+  boxes = []
 
   mask = gaussians.instance_label != -1
   valid_labels = gaussians.instance_label[mask]
@@ -72,63 +78,86 @@ def extract_instance_corner_points(gaussians: Gaussians):
 
   for label in unique_labels:
     positions = gaussians.position[(gaussians.instance_label == label).squeeze()]
-    corner_points.append((torch.min(positions, dim=0)[0], torch.max(positions, dim=0)[0]))
+    boxes.append(BoundingBox(torch.min(positions, dim=0).values, torch.max(positions, dim=0).values))
 
-  return corner_points
+  return boxes
+
+@beartype
+def make_solid_box(box:BoundingBox):
+  min_coords = box.lower.cpu().numpy()
+  max_coords = box.upper.cpu().numpy()
+
+  box_vertices = np.array([
+    [min_coords[0], min_coords[1], min_coords[2]],
+    [max_coords[0], min_coords[1], min_coords[2]],
+    [max_coords[0], max_coords[1], min_coords[2]],
+    [min_coords[0], max_coords[1], min_coords[2]],
+    [min_coords[0], min_coords[1], max_coords[2]],
+    [max_coords[0], min_coords[1], max_coords[2]],
+    [max_coords[0], max_coords[1], max_coords[2]],
+    [min_coords[0], max_coords[1], max_coords[2]]
+  ])
+
+  box_faces = np.array([
+    [0, 1, 2], [0, 2, 3],  # bottom face
+    [4, 5, 6], [4, 6, 7],  # top face
+    [0, 1, 5], [0, 5, 4],  # front face
+    [2, 3, 7], [2, 7, 6],  # back face
+    [0, 3, 7], [0, 7, 4],  # left face
+    [1, 2, 6], [1, 6, 5]   # right face
+  ])
+
+  return pyrender.Mesh.from_trimesh(trimesh.Trimesh(vertices=box_vertices, faces=box_faces), material=pyrender.MetallicRoughnessMaterial(
+    doubleSided=True, wireframe=True, smooth=False, baseColorFactor=(255, 255, 0, 255)
+  ))
 
 
-def make_bounding_box(gaussians: Gaussians):
-  assert gaussians.instance_label is not None
-  
-  all_vertices = []
-  all_indices = []
-  current_vertex_count = 0
 
-  for (min_coords, max_coords) in extract_instance_corner_points(gaussians):
-    min_x, min_y, min_z = min_coords.cpu().numpy()
-    max_x, max_y, max_z = max_coords.cpu().numpy()
+@beartype
+def make_wire_boxes(boxes: List[BoundingBox]):
+    if len(boxes) == 0:
+        return pyrender.Mesh([])
 
-    vertices = np.array([
-      [min_x, min_y, min_z], 
-      [max_x, min_y, min_z], 
-      [max_x, max_y, min_z], 
-      [min_x, max_y, min_z], 
-      [min_x, min_y, max_z], 
-      [max_x, min_y, max_z], 
-      [max_x, max_y, max_z], 
-      [min_x, max_y, max_z]
-    ])
+    vertices = []
+    indices = []
 
-    edges = np.array([
-      [0, 1], [1, 2], [2, 3], [3, 0], 
-      [4, 5], [5, 6], [6, 7], [7, 4],
-      [0, 4], [1, 5], [2, 6], [3, 7]
-    ], dtype=np.uint32) + current_vertex_count
+    for i, box in enumerate(boxes):
+        min_coords = box.lower.cpu().numpy()
+        max_coords = box.upper.cpu().numpy()
 
-    current_vertex_count += len(vertices)
+        box_vertices = np.array([
+            min_coords,
+            [max_coords[0], min_coords[1], min_coords[2]],
+            [max_coords[0], max_coords[1], min_coords[2]],
+            [min_coords[0], max_coords[1], min_coords[2]],
+            [min_coords[0], min_coords[1], max_coords[2]],
+            [max_coords[0], min_coords[1], max_coords[2]],
+            max_coords,
+            [min_coords[0], max_coords[1], max_coords[2]]
+        ])
 
-    all_vertices.append(vertices)
-    all_indices.append(edges)
+        box_indices = np.array([
+            [0, 1], [1, 2], [2, 3], [3, 0], 
+            [4, 5], [5, 6], [6, 7], [7, 4],
+            [0, 4], [1, 5], [2, 6], [3, 7]
+        ]) + i * 8
 
-  if not all_vertices:
-    all_vertices = np.empty((0, 3))
-    all_indices = np.empty((0, 2), dtype=np.uint32)
+        vertices.append(box_vertices)
+        indices.append(box_indices)
 
-  else:
-    all_vertices = np.vstack(all_vertices)
-    all_indices = np.vstack(all_indices)
+    all_vertices = np.vstack(vertices)
+    all_indices = np.vstack(indices)
 
-  primitive = pyrender.Primitive(
-    positions=all_vertices,
-    indices=all_indices,
-    mode=1,
-    material=pyrender.MetallicRoughnessMaterial
-              (doubleSided=True, wireframe=True, smooth=False, baseColorFactor=(255, 255, 0, 255))
-  )
+    primitive = pyrender.Primitive(
+        positions=all_vertices,
+        indices=all_indices,
+        mode=1,
+        material=pyrender.MetallicRoughnessMaterial(
+            doubleSided=True, wireframe=True, smooth=False, baseColorFactor=(255, 255, 0, 255)
+        )
+    )
 
-  mesh = pyrender.Mesh([primitive])
-
-  return mesh
+    return pyrender.Mesh([primitive])
 
 
 

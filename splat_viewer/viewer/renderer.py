@@ -14,7 +14,7 @@ from splat_viewer.gaussians import Gaussians, Rendering
 from splat_viewer.viewer.scene_camera import to_pyrender_camera
 
     
-from .mesh import make_camera_markers, make_bounding_box
+from .mesh import make_camera_markers, instance_boxes, make_wire_boxes
 from .settings import Settings, ViewMode
 
 import plyfile
@@ -62,7 +62,9 @@ class PyrenderScene:
       self.scene.remove_node(self.bbox_node)
 
     if gaussians.instance_label is not None:
-      bounding_boxes = make_bounding_box(gaussians)
+      bounding_boxes = instance_boxes(gaussians)
+
+      wire_boxes = make_wire_boxes(bounding_boxes)
       self.bbox_node = self.scene.add(bounding_boxes)
     else:
       self.bbox_node = None
