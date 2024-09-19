@@ -62,11 +62,12 @@ class GaussianRenderer:
       config=config, 
       use_sh=True, 
       use_depth16=self.config.use_depth16,
-      render_depth=render_depth)
+      render_depth=render_depth,
+      render_median_depth=True)
     
     
     return Rendering(image=rendering.image, 
-                            depth=rendering.depth, 
+                            depth=rendering.median_depth, 
                             depth_var=rendering.depth_var, 
                              camera=camera)
     

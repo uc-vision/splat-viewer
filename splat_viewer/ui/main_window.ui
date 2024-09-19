@@ -133,6 +133,29 @@
           </layout>
          </item>
          <item>
+          <widget class="QGroupBox" name="groupBox_2">
+           <property name="title">
+            <string>Debug</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_9">
+            <item>
+             <widget class="QCheckBox" name="fixed_size">
+              <property name="text">
+               <string>Fixed size</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="fixed_opacity">
+              <property name="text">
+               <string>Fixed opacity</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
           <spacer name="verticalSpacer">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
@@ -241,7 +264,7 @@
      <x>0</x>
      <y>0</y>
      <width>1536</width>
-     <height>23</height>
+     <height>24</height>
     </rect>
    </property>
   </widget>

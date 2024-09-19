@@ -93,8 +93,20 @@ class Interaction():
     if self.has_child:
       if self._child.trigger_paint(event, view_changed):
         return True
-      
     return self.paintEvent(event, view_changed) 
+  
+
+  def trigger_render(self, gaussians:Gaussians):
+    gaussians = self.renderEvent(gaussians)
+    if self.has_child:
+      gaussians = self._child.trigger_render(gaussians)
+
+    return gaussians
+
+
+  def renderEvent(self, gaussians:Gaussians):
+    return gaussians
+    
 
   def keyPressEvent(self, event: QtGui.QKeyEvent):
     return False
@@ -205,8 +217,13 @@ class Interaction():
   def gaussians(self) -> Gaussians:
     return self.scene_widget.gaussians
   
-  def update_gaussians(self, gaussians:Gaussians):
-    return self.scene_widget.update_gaussians(gaussians)
+  @property
+  def num_points(self):
+    return self.gaussians.num_points
+  
+  
+  def mark_dirty(self):
+    self.scene_widget.mark_dirty()
 
   def update_setting(self, **kwargs):
     self.scene_widget.update_setting(**kwargs)

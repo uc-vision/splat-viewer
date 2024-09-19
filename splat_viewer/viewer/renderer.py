@@ -1,4 +1,5 @@
 from dataclasses import dataclass, replace
+from beartype import beartype
 import cv2
 
 import numpy as np
@@ -42,27 +43,27 @@ class PyrenderScene:
     self.renderer = None
 
     self.seed_points = workspace.load_seed_points()
-    self.initial_scene = pyrender.Scene()
+    self.scene = pyrender.Scene()
 
     self.points = plyfile_to_mesh(self.seed_points)
-    self.initial_node = self.initial_scene.add(self.points, pose=np.eye(4))
+    self.initial_node = self.scene.add(self.points, pose=np.eye(4))
 
-    self.initial_scene.ambient_light = np.array([1.0, 1.0, 1.0, 1.0])
+    self.scene.ambient_light = np.array([1.0, 1.0, 1.0, 1.0])
 
     self.cameras = make_camera_markers(workspace.cameras, workspace.camera_extent / 50.)
-    self.initial_scene.add(self.cameras)
+    self.scene.add(self.cameras)
     
     self.update_gaussians(gaussians)
 
 
-  
+  @beartype  
   def update_gaussians(self, gaussians:Gaussians):
     if self.bbox_node is not None:
-      self.initial_scene.remove_node(self.bbox_node)
+      self.scene.remove_node(self.bbox_node)
 
     if gaussians.instance_label is not None:
       bounding_boxes = make_bounding_box(gaussians)
-      self.bbox_node = self.initial_scene.add(bounding_boxes)
+      self.bbox_node = self.scene.add(bounding_boxes)
     else:
       self.bbox_node = None
 
@@ -88,16 +89,17 @@ class PyrenderScene:
       self.bbox_node.mesh.is_visible = settings.show.bounding_boxes
 
     node = to_pyrender_camera(camera)
-    scene =  self.initial_scene
-    scene.add_node(node)
+    self.scene.add_node(node)
 
-    image, depth = renderer.render(scene)
-    scene.remove_node(node)
+    image, depth = renderer.render(self.scene)
+    self.scene.remove_node(node)
 
     return image, depth
 
 @dataclass(frozen=True)
 class RenderState:
+  fixed_size : bool = False
+  fixed_opacity : bool = False
   as_points : bool = False
   cropped : bool = False
   filtered_points: bool = False
@@ -105,37 +107,14 @@ class RenderState:
 
   def update_setting(self, settings:Settings):
     return replace(self,
-      as_points = settings.view_mode == ViewMode.Points,
+      fixed_size = settings.show.fixed_size,
+      fixed_opacity = settings.show.fixed_opacity,
       cropped = settings.show.cropped,
       filtered_points = settings.show.filtered_points,
       color_instances = settings.show.color_instances)
 
-
-  def updated(self, gaussians:Gaussians) -> Gaussians:
-
-    if self.as_points:
-
-      alpha_logit = torch.full_like(gaussians.alpha_logit, 10.0)
-      gaussians = gaussians.with_fixed_scale(0.001).replace(alpha_logit=alpha_logit)
-
-    if self.cropped and gaussians.foreground is not None:
-      gaussians = gaussians[gaussians.foreground.squeeze()]
-
-    if self.color_instances and gaussians.instance_label is not None:
-    
-      instance_mask = (gaussians.instance_label >= 0).squeeze()
-      valid_instances = gaussians.instance_label[instance_mask].squeeze().long()
-
-      unique_instance_labels = torch.unique(valid_instances)
-
-      color_space = (torch.randn(unique_instance_labels.shape[0], 3, device=instance_mask.device) * 2).sigmoid()
-
-      gaussians = gaussians.with_colors(color_space[valid_instances], instance_mask)
-
-    if self.filtered_points and gaussians.label is not None:
-      gaussians = gaussians[gaussians.label.squeeze() > 0.3]
-
-    return gaussians
+def random_colors(n:int, device:torch.device):
+  return (torch.randn(n, 3, device=device) * 2).sigmoid()
 
 class WorkspaceRenderer:
   def __init__(self, workspace:Workspace, gaussians:Gaussians, gaussian_renderer):
@@ -152,6 +131,47 @@ class WorkspaceRenderer:
     self.rendering = None
     self.color_map = torch.from_numpy(get_cv_colormap(cv2.COLORMAP_TURBO)
                                       ).squeeze(0).to(device=self.gaussians.device)
+    
+    self.instance_colors = None
+
+  def gen_instance_colors(self, instance_labels:torch.Tensor):
+      unique_instance_labels = torch.unique(instance_labels)
+      num_instances = unique_instance_labels.shape[0]
+
+      if self.instance_colors is None:
+        self.instance_colors = random_colors(num_instances, device=self.gaussians.device)
+
+      if self.instance_colors.shape[0] <= num_instances:
+        self.instance_colors = torch.cat([self.instance_colors, random_colors(num_instances, device=self.gaussians.device)])
+
+      return self.instance_colors[instance_labels]
+
+  def updated(self, state:RenderState, gaussians:Gaussians) -> Gaussians:
+
+    if state.fixed_size:
+      gaussians = gaussians.with_fixed_scale(0.001)
+
+    if state.fixed_opacity:
+      
+      alpha_logit = torch.full_like(gaussians.alpha_logit, 10.0)
+      gaussians = gaussians.replace(alpha_logit=alpha_logit)
+
+    if state.cropped and gaussians.foreground is not None:
+      gaussians = gaussians[gaussians.foreground.squeeze()]
+
+    if state.color_instances and gaussians.instance_label is not None:
+    
+      instance_mask = (gaussians.instance_label >= 0).squeeze()
+      valid_instances = gaussians.instance_label[instance_mask].squeeze().long()
+
+      instance_colors = self.gen_instance_colors(valid_instances)
+      gaussians = gaussians.with_colors(instance_colors, instance_mask)
+
+    if state.filtered_points and gaussians.label is not None:
+      gaussians = gaussians[gaussians.label.squeeze() > 0.3]
+
+    return gaussians
+
 
 
   def render_gaussians(self, camera, settings:Settings) -> Rendering:
@@ -159,7 +179,7 @@ class WorkspaceRenderer:
 
     if self.packed_gaussians is None or self.render_state != render_state:
       self.packed_gaussians = self.gaussian_renderer.pack_inputs(
-        render_state.updated(self.gaussians))
+        self.updated(render_state, self.gaussians))
       
       self.render_state = render_state
     return self.gaussian_renderer.render(self.packed_gaussians, camera)
@@ -203,15 +223,14 @@ class WorkspaceRenderer:
     min_depth = self.workspace.camera_extent / 10.
 
     depth = self.rendering.depth
-    eps = 1e-6
 
     if settings.view_mode == ViewMode.Depth:
       image_gaussian = self.colormap_torch(depth, near = min_depth).to(torch.uint8).cpu().numpy()
-    elif settings.view_mode == ViewMode.DepthVar:
-      norm_var = self.rendering.depth_var / (depth + eps)
+    # elif settings.view_mode == ViewMode.DepthVar:
+    #   norm_var = self.rendering.depth_var / (depth + eps)
 
 
-      image_gaussian = self.colormap_torch(norm_var, near = 1e-5).to(torch.uint8).cpu().numpy()  
+    #   image_gaussian = self.colormap_torch(norm_var, near = 1e-5).to(torch.uint8).cpu().numpy()  
     else:
       image_gaussian = (self.rendering.image.clamp(0, 1) * 255).to(torch.uint8).cpu().numpy()
 

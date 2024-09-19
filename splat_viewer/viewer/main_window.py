@@ -23,7 +23,10 @@ def create_window(scene_widget:SceneWidget):
       cropped = window.show_cropped,
       bounding_boxes = window.show_bounding_boxes,
       filtered_points = window.show_filtered_points,
-      color_instances = window.show_color_instances
+      color_instances = window.show_color_instances,
+
+      fixed_size = window.fixed_size,
+      fixed_opacity = window.fixed_opacity,
   )
 
   def update_setting(key, value):

@@ -6,9 +6,7 @@ from beartype.typing import Tuple
 class ViewMode(Enum):
   Normal = 0
   Depth = 1
-  Points = 2
-  Hidden = 3
-  DepthVar = 4
+
 
 @dataclass(frozen=True)
 class Show:
@@ -18,6 +16,9 @@ class Show:
   bounding_boxes: bool = False
   filtered_points: bool = False
   color_instances: bool = False
+
+  fixed_size: bool = False
+  fixed_opacity: bool = False
 
 
 

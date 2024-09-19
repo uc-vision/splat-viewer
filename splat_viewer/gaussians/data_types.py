@@ -1,5 +1,7 @@
 from dataclasses import replace
 import math
+from numbers import Number
+from beartype import beartype
 from beartype.typing import Optional
 from tensordict import tensorclass
 import torch
@@ -67,6 +69,10 @@ class Gaussians():
   def device(self):
     return self.position.device 
   
+  @property
+  def num_points(self):
+    return self.batch_size[0]
+  
   def to_gaussians3d(self):
     return Gaussians3D(
       position=self.position,
@@ -122,10 +128,18 @@ class Gaussians():
   def get_rotation_matrix(self):
     return roma.unitquat_to_rotmat(self.rotation)
   
-  def set_colors(self, color: tuple[float, float, float], indexes: Optional[torch.Tensor]):
+  @beartype
+  def set_colors(self, color: tuple[Number, Number, Number], indexes: Optional[torch.Tensor]):
+    assert indexes.dtype == torch.long, f"Expected dtype torch.long, got {indexes.dtype}"
+
     colors = torch.tensor(color, device=self.device).expand(indexes.shape[0], -1)  
     return self.with_colors(colors, indexes)
 
+  @beartype
+  def set_color_mask(self, color: tuple[Number, Number, Number], mask: Optional[torch.Tensor]):
+    assert mask.dtype == torch.bool, f"Expected dtype torch.bool, got {mask.dtype}"
+    return self.set_colors(color, torch.where(mask)[0])
+    
 
   def with_colors(self, colors, index=None):
     sh_feature = self.sh_feature.clone()

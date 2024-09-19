@@ -8,7 +8,14 @@ import numpy as np
 from splat_viewer.gaussians.data_types import Gaussians
 from splat_viewer.viewer.interaction import Interaction
 
-from .scribble import Instance, ScribbleGeometric
+from .select_radius import Instance, SelectRadius
+
+
+def colorize_instances(instances:List[Instance], gaussians: Gaussians):
+  for instance in instances:
+    gaussians = gaussians.set_colors(instance.color, instance.points)
+    
+  return gaussians
 
 
 class LabelInstances(Interaction):
@@ -22,7 +29,7 @@ class LabelInstances(Interaction):
   def new_scribble(self):
     self.pop()
 
-    self.scribble = ScribbleGeometric()
+    self.scribble = SelectRadius()   
 
     self.push(self.scribble)
 
@@ -30,14 +37,10 @@ class LabelInstances(Interaction):
     self.new_scribble()
 
 
-  
-  def colorize_instances(self, gaussians: Gaussians):
-    for instance in self.instances:
-      gaussians = gaussians.set_colors(instance.color, instance.points)
-      
-    return gaussians
 
 
+  def renderEvent(self, gaussians:Gaussians):
+    return colorize_instances(self.instances, gaussians)
 
   def keyPressEvent(self, event: QtGui.QKeyEvent):
 
@@ -51,7 +54,7 @@ class LabelInstances(Interaction):
 
       self.new_scribble()
 
-      self.update_gaussians(self.colorize_instances(self.gaussians))
+      self.mark_dirty()
       return True
 
     return super().keyPressEvent(event)

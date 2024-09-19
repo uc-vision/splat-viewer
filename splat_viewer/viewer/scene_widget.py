@@ -1,4 +1,5 @@
 from dataclasses import replace
+import traceback
 from beartype.typing import Tuple, Optional
 
 from PySide6 import QtGui, QtCore, QtWidgets
@@ -16,7 +17,6 @@ from splat_viewer.camera.fov import FOVCamera
 
 from splat_viewer.gaussians.workspace import Workspace
 from splat_viewer.gaussians import Gaussians
-from splat_viewer.viewer.interactions.animate import  animate_to_loop
 from splat_viewer.viewer.interaction import Interaction
 from splat_viewer.viewer.interactions.label_instances import LabelInstances
 from splat_viewer.viewer.renderer import WorkspaceRenderer, GaussianRenderer
@@ -30,6 +30,7 @@ from .settings import Settings, ViewMode
 
 class SceneWidget(QtWidgets.QWidget):
   settings_changed = QtCore.Signal(Settings)
+  scene_changed = QtCore.Signal()
   
   def __init__(self, renderer:GaussianRenderer, 
                settings:Settings = Settings(),
@@ -47,10 +48,11 @@ class SceneWidget(QtWidgets.QWidget):
     self.modifiers = Qt.NoModifier
     self.keys_down = set()
 
-    self.dirty = True
+    self.dirty = False
+    self.view_dirty = True
 
     self.camera_state = Interaction()
-    self.interaction = LabelInstances()
+    self.interaction = Interaction()
 
     self.setFocusPolicy(Qt.StrongFocus)
     self.setMouseTracking(True)
@@ -67,19 +69,23 @@ class SceneWidget(QtWidgets.QWidget):
     self.settings_changed.emit(self.settings)
     self.dirty = True
 
-  @property 
-  def gaussians(self) -> Gaussians:
-    return self.workspace_renderer.gaussians
+  
+  def mark_dirty(self):
+    self.dirty = True
+    self.scene_changed.emit()
 
 
   def load_workspace(self, workspace:Workspace, gaussians:Gaussians):
     self.workspace = workspace
-    
+    self.gaussians = gaussians.to(self.settings.device)
+
     self.workspace_renderer = WorkspaceRenderer(workspace, gaussians.to(self.settings.device), self.renderer)
     self.keypoints = self.read_keypoints()
 
     self.set_camera_index(0)
+    
     self.camera_state = FlyControl()
+    self.interaction = LabelInstances()
 
   def update_workspace(self, gaussians:Gaussians, index:Optional[int]=None):
     self.load_workspace(self.workspace, gaussians)
@@ -88,11 +94,9 @@ class SceneWidget(QtWidgets.QWidget):
     self.show()
 
   def update_gaussians(self, gaussians:Gaussians):
-    self.workspace_renderer.update_gaussians(gaussians.to(self.settings.device))
-    self.dirty = True
-
-  def set_dirty(self):
-    self.dirty = True
+    self.gaussians = gaussians.to(self.settings.device)
+    self.mark_dirty()
+  
 
   @property
   def camera_path_file(self):
@@ -121,7 +125,7 @@ class SceneWidget(QtWidgets.QWidget):
 
     self.camera.set_camera(camera)
     self.camera_index = index
-    self.dirty = True
+    self.view_dirty = True
 
 
   @property
@@ -160,9 +164,7 @@ class SceneWidget(QtWidgets.QWidget):
 
     view_modes = {
       Qt.Key_1 : ViewMode.Normal,
-      Qt.Key_2 : ViewMode.Points,
-      Qt.Key_3 : ViewMode.Depth,
-      Qt.Key_4 : ViewMode.DepthVar,
+      Qt.Key_2 : ViewMode.Depth
 
     }
 
@@ -189,11 +191,11 @@ class SceneWidget(QtWidgets.QWidget):
 
     elif event.key() == Qt.Key_Equal: 
       self.camera.zoom(self.settings.zoom_discrete)
-      self.dirty = True
+      self.view_dirty = True
       return True
     elif event.key() == Qt.Key_Minus:
       self.camera.zoom(1/self.settings.zoom_discrete)
-      self.dirty = True
+      self.view_dirty = True
 
       return True
 
@@ -227,7 +229,7 @@ class SceneWidget(QtWidgets.QWidget):
     self.repaint()
 
   def resizeEvent(self, event: QtGui.QResizeEvent):
-    self.dirty = True
+    self.view_dirty = True
     return super().resizeEvent(event)
 
   def mouseMoveEvent(self, event: QtGui.QMouseEvent):
@@ -307,31 +309,45 @@ class SceneWidget(QtWidgets.QWidget):
   def render_camera(self) -> FOVCamera:
     return self.camera.resized(self.image_size)
   
+  def render_gaussians(self):
+    if self.dirty:
+      gaussians = self.interaction.trigger_render(self.gaussians)
+      self.workspace_renderer.update_gaussians(gaussians)
+      self.dirty = False
+  
   def render(self):
     camera = self.render_camera()
+
+    self.render_gaussians()
+
 
     self.view_image = np.ascontiguousarray(
       self.workspace_renderer.render(camera, self.settings))
         
-    self.dirty = False
+    self.view_dirty = False
     return self.view_image
 
       
   def paintEvent(self, event: QtGui.QPaintEvent):
-    with QtGui.QPainter(self) as painter:
-      dirty = self.dirty
-      if dirty:
-        self.render()
+    try:
+      with QtGui.QPainter(self) as painter:
+        view_dirty = self.view_dirty
 
-      image = QtGui.QImage(self.view_image.data, 
-                  self.view_image.shape[1], self.view_image.shape[0],
-                  self.view_image.strides[0],  
-                  QtGui.QImage.Format_RGB888)
+        if view_dirty or self.dirty:
+          self.render()
+
+        image = QtGui.QImage(self.view_image.data, 
+                    self.view_image.shape[1], self.view_image.shape[0],
+                    self.view_image.strides[0],  
+                    QtGui.QImage.Format_RGB888)
+        
+
+        painter.drawImage(0, 0, image)
+        self.interaction.trigger_paint(event, view_dirty)
+    except Exception:
+      traceback.print_exc()
+      QtWidgets.QApplication.quit()
       
-
-      painter.drawImage(0, 0, image)
-
-      self.interaction.trigger_paint(event, dirty)
       
             
   def snapshot_file(self):
@@ -386,15 +402,15 @@ class SceneWidget(QtWidgets.QWidget):
 
   def move_camera(self, delta:np.ndarray):
     self.camera.move(delta)
-    self.dirty = True
+    self.view_dirty = True
 
   def rotate_camera(self, delta:np.ndarray):
     self.camera.rotate(delta)
-    self.dirty = True
+    self.view_dirty = True
 
   def set_camera_pose(self, r:np.ndarray, t:np.ndarray):
     self.camera.set_pose(r, t)
-    self.dirty = True
+    self.view_dirty = True
 
 
 
