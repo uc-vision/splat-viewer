@@ -1,3 +1,4 @@
+from abc import ABCMeta
 from dataclasses import dataclass
 from enum import Enum
 import math
@@ -29,24 +30,28 @@ class Instance:
   points:torch.Tensor
 
 
+
+
 class DrawMode(Enum):
   Draw = 0
   Erase = 1
-  
+  Select = 2
 
-class SelectRadius(Interaction):
-  def __init__(self, color:tuple[float, float, float] = (1, 0, 0), label:int = 0):
-    super(SelectRadius, self).__init__()
+
+class InstanceEditor(Interaction):
+  def __init__(self):
+    super(InstanceEditor, self).__init__()
 
     self.mode: Optional[DrawMode] = None
-    self.current_label = label
+    self.current_label = 0
+
 
     self.current_mask = torch.zeros(self.num_points, dtype=torch.bool, device=self.device)
-    self.color = color
+    self.color = (1, 0, 0)
 
 
   @property
-  def ready(self) -> Optional[DrawMode]:
+  def ready_mode(self) -> Optional[DrawMode]:
     draw = bool(self.modifiers & Qt.ControlModifier)
     erase = bool(self.modifiers & Qt.ShiftModifier)
 
@@ -62,8 +67,8 @@ class SelectRadius(Interaction):
     return self.current_mask.sum() > 0
   
   def mousePressEvent(self, event: QtGui.QMouseEvent):
-    if event.button() == Qt.LeftButton and self.ready is not None:
-      self.mode = self.ready
+    if event.button() == Qt.LeftButton and self.ready_mode is not None:
+      self.mode = self.ready_mode
 
       self.draw((event.x(), event.y()))
       return True
@@ -78,6 +83,8 @@ class SelectRadius(Interaction):
 
     p, r = self.unproject_radius(cursor_pos, depth, self.settings.brush_size)
     return in_sphere(self.gaussians.position, self.from_numpy(p), r)
+
+
 
   def draw(self, cursor_pos:Tuple[int, int]):
     idx = self.select((cursor_pos))
@@ -97,7 +104,7 @@ class SelectRadius(Interaction):
     
 
   def wheelEvent(self, event: QtGui.QWheelEvent):
-    if self.ready is not None:
+    if self.ready_mode is not None:
       dy = event.pixelDelta().y()
       factor = math.pow(1.0015, dy)
 

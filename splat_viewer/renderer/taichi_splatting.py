@@ -10,7 +10,6 @@ from taichi_splatting.perspective import CameraParams
 
 from splat_viewer.gaussians.data_types import Gaussians, Rendering
 
-
 def to_camera_params(camera:FOVCamera, device=torch.device("cuda:0")):
 
   params = CameraParams(
@@ -23,7 +22,7 @@ def to_camera_params(camera:FOVCamera, device=torch.device("cuda:0")):
   )
 
   return params.to(device=device, dtype=torch.float32)
-    
+
 
 
 
