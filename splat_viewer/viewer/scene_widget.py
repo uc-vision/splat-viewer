@@ -18,7 +18,6 @@ from splat_viewer.camera.fov import FOVCamera
 from splat_viewer.gaussians.workspace import Workspace
 from splat_viewer.gaussians import Gaussians
 from splat_viewer.viewer.interaction import Interaction
-from splat_viewer.viewer.interactions.label_instances import LabelInstances
 from splat_viewer.viewer.renderer import WorkspaceRenderer, GaussianRenderer
 
     
@@ -62,7 +61,6 @@ class SceneWidget(QtWidgets.QWidget):
     self.timer.start(1000 / Settings.update_rate)
 
 
-
   def update_setting(self, **kwargs):
     self.settings = replace(self.settings, **kwargs)
 
@@ -85,7 +83,6 @@ class SceneWidget(QtWidgets.QWidget):
     self.set_camera_index(0)
     
     self.camera_state = FlyControl()
-    self.interaction = LabelInstances()
 
   def update_workspace(self, gaussians:Gaussians, index:Optional[int]=None):
     self.load_workspace(self.workspace, gaussians)
