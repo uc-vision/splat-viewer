@@ -9,8 +9,8 @@ from PySide6.QtCore import Qt
 import numpy as np
 import torch
 
-from splat_viewer.editor.editor import Editor
-from splat_viewer.editor.gaussian_scene import GaussianScene
+from splat_viewer.editor.editor import AddInstance, Editor
+from splat_viewer.editor.gaussian_scene import GaussianScene, Instance, random_color
 from splat_viewer.gaussians.data_types import Gaussians
 from splat_viewer.viewer.interaction import Interaction
 
@@ -25,11 +25,6 @@ def in_box(positions:torch.Tensor, lower:torch.Tensor, upper:np.array):
   return torch.nonzero(mask, as_tuple=True)[0]
 
 
-@dataclass
-class Instance:
-  color:tuple[float, float, float]
-  label:int
-  points:torch.Tensor
 
 
 
@@ -47,29 +42,27 @@ class InstanceEditor(Interaction):
     self.mode: Optional[DrawMode] = None
     self.current_label = 0
 
-    self.current_instance:Optional[Instance] = None
+    self.current_instance:Optional[int] = None
+    self.current_mask = torch.zeros(self.gaussians.position.shape[0], dtype=torch.bool, device=self.gaussians.device)
+
     self.color = (1, 0, 0)
 
 
   @property
   def ready_mode(self) -> Optional[DrawMode]:
     draw = bool(self.modifiers & Qt.ControlModifier)
-    erase = bool(self.modifiers & Qt.ShiftModifier)
+    erase = bool(self.modifiers & Qt.ShiftModifier) and self.current_instance is not None
 
     return DrawMode.Draw if draw else DrawMode.Erase if erase else None
   
-  @property
-  def instance(self):
-    idx = torch.where(self.current_mask)[0]
-    return Instance(self.color, self.current_label, idx)
   
-  @property
-  def valid(self):
-    return self.current_mask.sum() > 0
   
   def mousePressEvent(self, event: QtGui.QMouseEvent):
     if event.button() == Qt.LeftButton and self.ready_mode is not None:
       self.mode = self.ready_mode
+
+
+
 
       self.draw((event.x(), event.y()))
       return True
@@ -90,12 +83,20 @@ class InstanceEditor(Interaction):
   def draw(self, cursor_pos:Tuple[int, int]):
     idx = self.select((cursor_pos))
 
+
     if self.mode == DrawMode.Draw:
       self.current_mask[idx] = True
     elif self.mode == DrawMode.Erase:
       self.current_mask[idx] = False
 
-    self.mark_dirty()
+
+    if self.current_instance is None:
+      self.current_instance = self.scene.next_instance()
+      name = self.scene.class_labels[self.current_label]
+      instance = Instance(self.scene.next_instance_id(), self.current_label, name, random_color())
+
+      self.editor.apply(AddInstance(instance))
+
 
   def mouseMoveEvent(self, event: QtGui.QMouseEvent):
     if self.mode is not None:

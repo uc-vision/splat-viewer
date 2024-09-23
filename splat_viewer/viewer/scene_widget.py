@@ -323,16 +323,13 @@ class SceneWidget(QtWidgets.QWidget):
   def render_camera(self) -> FOVCamera:
     return self.camera.resized(self.image_size)
   
-  
+
   def render(self):
     camera = self.render_camera()
-
-    scene = self.tool.trigger_render(self.editor.scene)
-    self.scene_renderer.update_gaussians(scene)
-
+    scene = self.edited_scene or self.editor.scene 
 
     self.view_image = np.ascontiguousarray(
-      self.scene_renderer.render(camera, self.settings))
+      self.scene_renderer.render(self.current_scene, camera, self.settings))
         
     self.view_dirty = False
     return self.view_image
