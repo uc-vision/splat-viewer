@@ -38,6 +38,8 @@ build-backend = "setuptools.build_meta"
 
 [project.scripts]  # Optional
 splat-viewer = "splat_viewer.scripts.splat_viewer:main"
+instance-editor = "splat_viewer.scripts.instance_editor:main"
+
 splat-benchmark = "splat_viewer.scripts.splat_benchmark:main"
 splat-multi-benchmark = "splat_viewer.scripts.splat_multi_benchmark:main"
 

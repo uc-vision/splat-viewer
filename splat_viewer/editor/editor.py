@@ -1,15 +1,13 @@
 
 
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass, field, replace
-from typing import Generic, List, Optional, Tuple, TypeVar
+from dataclasses import replace
+from typing import List, Optional, Tuple
 
 import torch
+from splat_viewer.editor.gaussian_scene import GaussianScene, Instance
 
-from splat_viewer.gaussians.data_types import Gaussians
-from splat_viewer.viewer.editor.gaussian_scene import GaussianScene, Instance
-
-
+from PySide6.QtCore import QObject, Signal
 
 
 
@@ -19,18 +17,37 @@ class Edit( metaclass=ABCMeta):
     raise NotImplementedError
 
 
-@dataclass
-class Editor:
-  scene: GaussianScene
 
-  undos : List[Edit] = field(default_factory=list)
-  redos : List[Edit] = field(default_factory=list)
+
+class Editor(QObject):
+  scene_changed = Signal()
+
+  def __init__(self, scene:GaussianScene, parent:QObject = None):
+    super().__init__(parent)
+
+    self.scene = scene 
+
+    self.undos : List[Edit] = []
+    self.redos : List[Edit] = []
+
+
+  def set_scene(self, scene:GaussianScene):
+    self.scene = scene
+    self.undos.clear()
+    self.redos.clear()
+
+    self.scene_changed.emit()
+
 
   def apply(self, edit:Edit):
+    if self.scene is None:
+      raise ValueError("No active scene")
+    
     self.scene, undo_edit = edit.apply(self.scene)
     self.undos.append(undo_edit)
     self.redos.clear()
-
+    self.scene_changed.emit()
+  
   def undo(self) -> bool:
     if not self.undos:
       return False
@@ -38,17 +55,20 @@ class Editor:
     edit = self.undos.pop()
     self.scene, redo_edit = edit.undo(self.scene)
     self.redos.append(redo_edit)
-
-  def redo(self):
+    self.scene_changed.emit()
+    return True
+  
+  def redo(self) -> bool:
     if not self.redos:
       return False
     
     edit = self.redos.pop()
     self.scene, undo_edit = edit.apply(self.scene)
     self.undos.append(undo_edit)
+    self.scene_changed.emit()
 
     return True
-    
+  
   @property
   def can_undo(self) -> bool:
     return len(self.undos) > 0

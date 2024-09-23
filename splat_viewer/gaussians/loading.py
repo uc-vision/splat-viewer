@@ -27,7 +27,7 @@ def to_plydata(gaussians:Gaussians) -> plyfile.PlyData:
     dtype.append(('foreground', 'u1'))
 
   if gaussians.label is not None:
-    dtype.append(('label', 'f4'))
+    dtype.append(('label', 'int16'))
 
   if gaussians.instance_label is not None:
     dtype.append(('instance_label', 'int16'))
@@ -61,10 +61,10 @@ def to_plydata(gaussians:Gaussians) -> plyfile.PlyData:
     vertex['foreground'] = gaussians.foreground[:, 0].numpy()
 
   if gaussians.label is not None:
-    vertex['label'] = gaussians.label[:, 0].numpy()
+    vertex['label'] = gaussians.label[:, 0].short().numpy()
 
   if gaussians.instance_label is not None:
-    vertex['instance_label'] = gaussians.instance_label[:, 0].numpy()
+    vertex['instance_label'] = gaussians.instance_label[:, 0].short().numpy()
 
   el = plyfile.PlyElement.describe(vertex, 'vertex')
   return plyfile.PlyData([el])
@@ -107,8 +107,8 @@ def from_plydata(plydata:plyfile.PlyData) -> Gaussians:
   foreground = (get_keys(['foreground']).to(torch.bool) 
     if 'foreground' in plydata['vertex'].data.dtype.names else None)
   
-  label = get_keys(['label']) if 'label' in vertex.data.dtype.names else None
-  instance_label = get_keys(['instance_label']) if 'instance_label' in vertex.data.dtype.names else None
+  label = get_keys(['label']).short() if 'label' in vertex.data.dtype.names else None
+  instance_label = get_keys(['instance_label']).short() if 'instance_label' in vertex.data.dtype.names else None
   
   return Gaussians(
     position = positions, 

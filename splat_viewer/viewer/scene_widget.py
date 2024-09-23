@@ -15,10 +15,16 @@ import numpy as np
 import torch
 from splat_viewer.camera.fov import FOVCamera
 
+from splat_viewer.editor.editor import Editor
+from splat_viewer.editor.gaussian_scene import GaussianScene
 from splat_viewer.gaussians.workspace import Workspace
 from splat_viewer.gaussians import Gaussians
+from splat_viewer.renderer.taichi_splatting import GaussianRenderer
+
+
 from splat_viewer.viewer.interaction import Interaction
-from splat_viewer.viewer.renderer import WorkspaceRenderer, GaussianRenderer
+from splat_viewer.viewer.interactions.instance_editor import InstanceEditor
+from splat_viewer.viewer.renderer import WorkspaceRenderer
 
     
 from .interactions.fly_control import FlyControl
@@ -47,11 +53,12 @@ class SceneWidget(QtWidgets.QWidget):
     self.modifiers = Qt.NoModifier
     self.keys_down = set()
 
-    self.dirty = False
-    self.view_dirty = True
 
     self.camera_state = Interaction()
-    self.interaction = Interaction()
+    self.tool = Interaction()
+
+    self.editor = Editor(parent=self, 
+          scene=GaussianScene.empty(device=self.settings.device))
 
     self.setFocusPolicy(Qt.StrongFocus)
     self.setMouseTracking(True)
@@ -65,24 +72,29 @@ class SceneWidget(QtWidgets.QWidget):
     self.settings = replace(self.settings, **kwargs)
 
     self.settings_changed.emit(self.settings)
-    self.dirty = True
 
   
-  def mark_dirty(self):
-    self.dirty = True
+  def emit_scene_changed(self):
     self.scene_changed.emit()
 
 
   def load_workspace(self, workspace:Workspace, gaussians:Gaussians):
     self.workspace = workspace
-    self.gaussians = gaussians.to(self.settings.device)
 
-    self.workspace_renderer = WorkspaceRenderer(workspace, gaussians.to(self.settings.device), self.renderer)
+    scene = GaussianScene.from_gaussians(gaussians, class_labels=["negative", "apple"])
+    self.editor.set_scene(scene)
+
+    self.scene_renderer = WorkspaceRenderer(workspace, self.renderer, self.settings.device)
     self.keypoints = self.read_keypoints()
 
     self.set_camera_index(0)
-    
+
     self.camera_state = FlyControl()
+    self.tool = InstanceEditor()
+
+    self.editor.scene_changed.connect(self.emit_scene_changed)
+    
+
 
   def update_workspace(self, gaussians:Gaussians, index:Optional[int]=None):
     self.load_workspace(self.workspace, gaussians)
@@ -91,9 +103,14 @@ class SceneWidget(QtWidgets.QWidget):
     self.show()
 
   def update_gaussians(self, gaussians:Gaussians):
-    self.gaussians = gaussians.to(self.settings.device)
-    self.mark_dirty()
-  
+    class_labels = self.scene.class_labels
+    scene = GaussianScene.from_gaussians(gaussians.to(self.settings.device), 
+                                         class_labels=class_labels)
+    self.editor.set_scene(scene)  
+
+  @property
+  def scene(self):
+    return self.editor.scene
 
   @property
   def camera_path_file(self):
@@ -136,7 +153,7 @@ class SceneWidget(QtWidgets.QWidget):
 
   def event(self, event: QEvent):
 
-    if (self.interaction.trigger_event(event) or 
+    if (self.tool.trigger_event(event) or 
         self.camera_state.trigger_event(event)):
       return True
       
@@ -221,7 +238,7 @@ class SceneWidget(QtWidgets.QWidget):
     return super().keyPressEvent(event)
   
 
-  def update(self):
+  def update_camera(self):
     self.camera_state._update(1 / self.settings.update_rate)
     self.repaint()
 
@@ -239,10 +256,10 @@ class SceneWidget(QtWidgets.QWidget):
     
   @property
   def rendering(self):
-    if self.workspace_renderer.rendering is None:
+    if self.scene_renderer.rendering is None:
       raise ValueError("No depth render available")
 
-    return self.workspace_renderer.rendering
+    return self.scene_renderer.rendering
 
   def unproject_point(self, p:np.ndarray, depth:float) -> np.ndarray:
     render = self.rendering
@@ -306,20 +323,16 @@ class SceneWidget(QtWidgets.QWidget):
   def render_camera(self) -> FOVCamera:
     return self.camera.resized(self.image_size)
   
-  def render_gaussians(self):
-    if self.dirty:
-      gaussians = self.interaction.trigger_render(self.gaussians)
-      self.workspace_renderer.update_gaussians(gaussians)
-      self.dirty = False
   
   def render(self):
     camera = self.render_camera()
 
-    self.render_gaussians()
+    scene = self.tool.trigger_render(self.editor.scene)
+    self.scene_renderer.update_gaussians(scene)
 
 
     self.view_image = np.ascontiguousarray(
-      self.workspace_renderer.render(camera, self.settings))
+      self.scene_renderer.render(camera, self.settings))
         
     self.view_dirty = False
     return self.view_image
@@ -328,10 +341,7 @@ class SceneWidget(QtWidgets.QWidget):
   def paintEvent(self, event: QtGui.QPaintEvent):
     try:
       with QtGui.QPainter(self) as painter:
-        view_dirty = self.view_dirty
-
-        if view_dirty or self.dirty:
-          self.render()
+        self.render()
 
         image = QtGui.QImage(self.view_image.data, 
                     self.view_image.shape[1], self.view_image.shape[0],
@@ -340,7 +350,7 @@ class SceneWidget(QtWidgets.QWidget):
         
 
         painter.drawImage(0, 0, image)
-        self.interaction.trigger_paint(event, view_dirty)
+        self.tool.trigger_paint(event)
     except Exception:
       traceback.print_exc()
       QtWidgets.QApplication.quit()
@@ -371,7 +381,7 @@ class SceneWidget(QtWidgets.QWidget):
         tile_camera = camera.crop(np.array([x * tile_size, y * tile_size]), 
                              np.array([tile_size, tile_size]))
         
-        image = self.workspace_renderer.render(tile_camera, self.settings)
+        image = self.scene_renderer.render(tile_camera, self.settings)
         tile = full_image[y * tile_size:(y + 1) * tile_size, 
                           x * tile_size:(x + 1) * tile_size, :] 
         
@@ -399,15 +409,12 @@ class SceneWidget(QtWidgets.QWidget):
 
   def move_camera(self, delta:np.ndarray):
     self.camera.move(delta)
-    self.view_dirty = True
 
   def rotate_camera(self, delta:np.ndarray):
     self.camera.rotate(delta)
-    self.view_dirty = True
 
   def set_camera_pose(self, r:np.ndarray, t:np.ndarray):
     self.camera.set_pose(r, t)
-    self.view_dirty = True
 
 
 

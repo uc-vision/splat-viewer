@@ -1,5 +1,8 @@
 from dataclasses import dataclass, replace
+import weakref
 from beartype import beartype
+
+
 import cv2
 
 import numpy as np
@@ -7,14 +10,16 @@ import pyrender
 import torch
 from splat_viewer.camera.fov import FOVCamera
 #from splat_viewer.renderer.diff_gaussian_rasterization import DiffGaussianRenderer
-from splat_viewer.renderer.taichi_splatting import GaussianRenderer
+
+from splat_viewer.editor.gaussian_scene import GaussianScene
+
 
 from splat_viewer.gaussians.workspace import Workspace
 from splat_viewer.gaussians import Gaussians, Rendering
 from splat_viewer.viewer.scene_camera import to_pyrender_camera
 
     
-from .mesh import make_camera_markers, instance_boxes, make_wire_boxes
+from .mesh import make_camera_markers
 from .settings import Settings, ViewMode
 
 import plyfile
@@ -38,7 +43,7 @@ def get_cv_colormap(cmap):
 
 class PyrenderScene:
   
-  def __init__(self,  workspace:Workspace, gaussians: Gaussians):
+  def __init__(self,  workspace:Workspace):
     self.bbox_node = None
     self.renderer = None
 
@@ -53,22 +58,6 @@ class PyrenderScene:
     self.cameras = make_camera_markers(workspace.cameras, workspace.camera_extent / 50.)
     self.scene.add(self.cameras)
     
-    self.update_gaussians(gaussians)
-
-
-  @beartype  
-  def update_gaussians(self, gaussians:Gaussians):
-    if self.bbox_node is not None:
-      self.scene.remove_node(self.bbox_node)
-
-    if gaussians.instance_label is not None:
-      bounding_boxes = instance_boxes(gaussians)
-
-      wire_boxes = make_wire_boxes(bounding_boxes)
-      self.bbox_node = self.scene.add(bounding_boxes)
-    else:
-      self.bbox_node = None
-
 
   def create_renderer(self, camera, settings:Settings):
     if self.renderer is None:
@@ -87,8 +76,6 @@ class PyrenderScene:
     self.cameras.is_visible = settings.show.cameras
     self.points.is_visible = settings.show.initial_points
 
-    if self.bbox_node is not None:
-      self.bbox_node.mesh.is_visible = settings.show.bounding_boxes
 
     node = to_pyrender_camera(camera)
     self.scene.add_node(node)
@@ -119,36 +106,26 @@ def random_colors(n:int, device:torch.device):
   return (torch.randn(n, 3, device=device) * 2).sigmoid()
 
 class WorkspaceRenderer:
-  def __init__(self, workspace:Workspace, gaussians:Gaussians, gaussian_renderer):
+  def __init__(self, workspace:Workspace, gaussian_renderer, device:torch.device):
     self.workspace = workspace
 
-    self.gaussians = gaussians
     self.packed_gaussians = None
     self.render_state = RenderState()
 
-    self.gaussian_renderer = gaussian_renderer
+    self.scene_ref = lambda: None
 
-    self.pyrender_scene = PyrenderScene(workspace, gaussians)
+    self.gaussian_renderer = gaussian_renderer
+    self.pyrender_scene = PyrenderScene(workspace)
 
     self.rendering = None
     self.color_map = torch.from_numpy(get_cv_colormap(cv2.COLORMAP_TURBO)
-                                      ).squeeze(0).to(device=self.gaussians.device)
+                                      ).squeeze(0).to(device=device)
     
     self.instance_colors = None
 
-  def gen_instance_colors(self, instance_labels:torch.Tensor):
-      unique_instance_labels = torch.unique(instance_labels)
-      num_instances = unique_instance_labels.shape[0]
 
-      if self.instance_colors is None:
-        self.instance_colors = random_colors(num_instances, device=self.gaussians.device)
-
-      if self.instance_colors.shape[0] <= num_instances:
-        self.instance_colors = torch.cat([self.instance_colors, random_colors(num_instances, device=self.gaussians.device)])
-
-      return self.instance_colors[instance_labels]
-
-  def updated(self, state:RenderState, gaussians:Gaussians) -> Gaussians:
+  def updated_gaussians(self, scene:GaussianScene, state:RenderState) -> Gaussians:
+    gaussians = scene.gaussians
 
     if state.fixed_size:
       gaussians = gaussians.with_fixed_scale(0.001)
@@ -162,11 +139,8 @@ class WorkspaceRenderer:
       gaussians = gaussians[gaussians.foreground.squeeze()]
 
     if state.color_instances and gaussians.instance_label is not None:
-    
-      instance_mask = (gaussians.instance_label >= 0).squeeze()
-      valid_instances = gaussians.instance_label[instance_mask].squeeze().long()
 
-      instance_colors = self.gen_instance_colors(valid_instances)
+      instance_colors, instance_mask = scene.instance_color_mask
       gaussians = gaussians.with_colors(instance_colors, instance_mask)
 
     if state.filtered_points and gaussians.label is not None:
@@ -176,21 +150,19 @@ class WorkspaceRenderer:
 
 
 
-  def render_gaussians(self, camera, settings:Settings) -> Rendering:
+  def render_gaussians(self, scene:GaussianScene, camera:FOVCamera, settings:Settings) -> Rendering:
     render_state = self.render_state.update_setting(settings)
 
-    if self.packed_gaussians is None or self.render_state != render_state:
+    if self.scene_ref() != scene or self.packed_gaussians is None or self.render_state != render_state:
       self.packed_gaussians = self.gaussian_renderer.pack_inputs(
-        self.updated(render_state, self.gaussians))
+        self.updated_gaussians(scene, render_state))
       
       self.render_state = render_state
+      self.scene_ref = weakref.ref(scene)
+
     return self.gaussian_renderer.render(self.packed_gaussians, camera)
 
-  def update_gaussians(self, gaussians:Gaussians):
-    self.gaussians = gaussians
-    self.packed_gaussians = None
-    
-    self.pyrender_scene.update_gaussians(gaussians)
+
 
   def unproject_mask(self, camera:FOVCamera, 
                 mask:torch.Tensor, alpha_multiplier=1.0, threshold=1.0):
@@ -202,37 +174,25 @@ class WorkspaceRenderer:
     depth = depth.clone()
     depth[depth <= 0] = torch.inf
 
-    min_depth = torch.clamp(depth, min=near).min()
-
-    inv_depth =  (min_depth / depth).clamp(0, 1)
+    inv_depth =  (near / depth).clamp(0, 1)
     inv_depth = (255 * inv_depth).to(torch.int)
 
     return (self.color_map[inv_depth])
 
-  def colormap_np(self, depth, near=0.1):
-    min_depth = np.clip(depth, a_min=near).min()
 
-    inv_depth =  (min_depth / depth)
-    inv_depth = (255 * inv_depth).astype(np.uint8)
-    return cv2.applyColorMap(inv_depth, cv2.COLORMAP_TURBO)
 
-  def render(self, camera, settings:Settings):
+  def render(self, scene:GaussianScene, camera:FOVCamera, settings:Settings):
     show = settings.show
 
     with torch.inference_mode():      
-      self.rendering = self.render_gaussians(camera, settings)   
+      self.rendering = self.render_gaussians(scene, camera, settings)   
     
-    min_depth = self.workspace.camera_extent / 10.
+    min_depth = camera.near * settings.depth_scale
 
     depth = self.rendering.depth
 
     if settings.view_mode == ViewMode.Depth:
       image_gaussian = self.colormap_torch(depth, near = min_depth).to(torch.uint8).cpu().numpy()
-    # elif settings.view_mode == ViewMode.DepthVar:
-    #   norm_var = self.rendering.depth_var / (depth + eps)
-
-
-    #   image_gaussian = self.colormap_torch(norm_var, near = 1e-5).to(torch.uint8).cpu().numpy()  
     else:
       image_gaussian = (self.rendering.image.clamp(0, 1) * 255).to(torch.uint8).cpu().numpy()
 

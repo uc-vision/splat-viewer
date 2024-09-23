@@ -96,18 +96,6 @@ class Interaction():
     return self.paintEvent(event, view_changed) 
   
 
-  def trigger_render(self, gaussians:Gaussians):
-    gaussians = self.renderEvent(gaussians)
-    if self.has_child:
-      gaussians = self._child.trigger_render(gaussians)
-
-    return gaussians
-
-
-  def renderEvent(self, gaussians:Gaussians):
-    return gaussians
-    
-
   def keyPressEvent(self, event: QtGui.QKeyEvent):
     return False
 

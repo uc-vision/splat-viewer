@@ -3,7 +3,6 @@ from pathlib import Path
 
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QMainWindow
 
 import qtawesome as qta
 
@@ -69,9 +68,8 @@ def create_window(scene_widget:SceneWidget):
     scene_widget.update_setting(view_mode=mode)
 
   window.view_mode.currentIndexChanged.connect(on_view_mode_changed)
-
-
   window.setCentralWidget(scene_widget)
+
 
   return window
 

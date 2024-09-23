@@ -24,6 +24,8 @@ class Show:
 
 @dataclass(frozen=True)
 class Settings:
+  depth_scale : float = 2.0
+
   update_rate : int = 20
   move_speed : float = 1.0
 

@@ -53,6 +53,7 @@ class Gaussians():
     assert self.label is None or self.label.shape[1] == 1, f"Expected shape (N, 1), got {self.label.shape}"
     assert self.instance_label is None or self.instance_label.shape[1] == 1, f"Expected shape (N, 1), got {self.instance_label.shape}"
 
+    
   def n(self):
     return self.batch_size[0]
 
@@ -92,6 +93,17 @@ class Gaussians():
       alpha_logit=g.alpha_logit,
       sh_feature=g.feature,
       batch_size=g.batch_size
+    )
+  
+  @staticmethod
+  def empty(sh_degree:int=1, device:torch.device=torch.device('cpu')):
+    return Gaussians(
+      position=torch.zeros((0, 3), device=device),
+      log_scaling=torch.zeros((0, 3), device=device),
+      rotation=torch.zeros((0, 4), device=device),
+      alpha_logit=torch.zeros((0, 1), device=device),
+      sh_feature=torch.zeros((0, 3, (sh_degree + 1)**2), device=device),
+      batch_size=(0,)
     )
 
   def crop_foreground(self):

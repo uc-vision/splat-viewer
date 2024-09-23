@@ -4,15 +4,17 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 
+from splat_viewer.editor.editor import Editor
+from splat_viewer.editor.main_window import create_window
 from splat_viewer.gaussians.workspace import load_workspace
 from splat_viewer.renderer.arguments import  add_render_arguments, make_renderer_args, renderer_from_args
 
-from splat_viewer.viewer.main_window import create_window
 
 import signal
 import taichi as ti
 import torch
 
+from splat_viewer.viewer.interactions.instance_editor import InstanceEditor
 from splat_viewer.viewer.scene_widget import SceneWidget
 from splat_viewer.viewer.settings import Settings
 
@@ -61,10 +63,15 @@ def main():
        renderer = renderer
     )
 
+    
+    scene_widget.load_workspace(workspace, gaussians)
+  
+
     window = create_window(scene_widget)
     
     scene_widget.load_workspace(workspace, gaussians)
     window.show()
+    
     
     sys.exit(app.exec())
 

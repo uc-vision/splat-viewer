@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import math
-import beartype
+from beartype import beartype
 from beartype.typing import List
 import trimesh
 

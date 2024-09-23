@@ -9,6 +9,8 @@ from PySide6.QtCore import Qt
 import numpy as np
 import torch
 
+from splat_viewer.editor.editor import Editor
+from splat_viewer.editor.gaussian_scene import GaussianScene
 from splat_viewer.gaussians.data_types import Gaussians
 from splat_viewer.viewer.interaction import Interaction
 
@@ -45,8 +47,7 @@ class InstanceEditor(Interaction):
     self.mode: Optional[DrawMode] = None
     self.current_label = 0
 
-
-    self.current_mask = torch.zeros(self.num_points, dtype=torch.bool, device=self.device)
+    self.current_instance:Optional[Instance] = None
     self.color = (1, 0, 0)
 
 
@@ -110,9 +111,6 @@ class InstanceEditor(Interaction):
 
       self.update_setting(brush_size = np.clip(self.settings.brush_size * factor, 1, 200))
       return True
-
-  def renderEvent(self, gaussians:Gaussians):
-    return gaussians.set_color_mask(self.color, self.current_mask)
 
 
   def paintEvent(self, event: QtGui.QPaintEvent, dirty:bool):
