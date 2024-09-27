@@ -63,13 +63,6 @@ class ModifyInstances(Edit):
 
 
 
-def paint_instance(scene:GaussianScene, instance_id:int, indexes:torch.Tensor):
-  assert instance_id not in scene.instances
-
-  instance_ids = torch.full_like(indexes, instance_id)
-  class_ids = scene.gaussians.label[indexes]
-
-  return ModifyInstances(indexes, instance_ids, class_ids)
 
 
 

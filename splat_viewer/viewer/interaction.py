@@ -6,6 +6,9 @@ from PySide6.QtCore import QEvent
 from beartype import beartype
 import numpy as np
 import torch
+from splat_viewer.editor.edit import Edit
+from splat_viewer.editor.editor import Editor
+from splat_viewer.editor.gaussian_scene import GaussianScene
 from splat_viewer.gaussians.data_types import Gaussians, Rendering
 
 from splat_viewer.viewer.settings import Settings
@@ -134,9 +137,28 @@ class Interaction():
     pass
 
   @property
+  def editor(self) -> Editor:
+    return self.scene_widget.editor
+  
+
+  def apply_edit(self, edit:Edit):
+    return self.editor.apply(edit)
+  
+  def unselect_instance(self):
+    return self.editor.modify(self.scene.unselected())
+  
+  def select_instance(self, instance_id:int):
+    return self.editor.modify(self.scene.selected(instance_id))
+
+
+  @property
   def scene_widget(self):
     from .scene_widget import SceneWidget
     return SceneWidget.instance
+  
+  @property
+  def scene(self) -> GaussianScene:
+    return self.scene_widget.scene
   
   @property
   def device(self):
@@ -182,8 +204,9 @@ class Interaction():
                         ) -> Tuple[np.ndarray, float]:
       return self.scene_widget.unproject_radius(p, depth, radius)
   
-  def set_dirty(self):
-    self.scene_widget.set_dirty()
+
+
+
   
   @property
   def depth_map(self):
@@ -203,15 +226,13 @@ class Interaction():
   
   @property
   def gaussians(self) -> Gaussians:
-    return self.scene_widget.gaussians
+    return self.scene.gaussians
   
   @property
-  def num_points(self):
+  def num_points(self) -> int:
     return self.gaussians.num_points
   
-  
-  def mark_dirty(self):
-    self.scene_widget.mark_dirty()
+
 
   def update_setting(self, **kwargs):
     self.scene_widget.update_setting(**kwargs)

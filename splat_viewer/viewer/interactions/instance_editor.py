@@ -1,17 +1,14 @@
-from abc import ABCMeta
-from dataclasses import dataclass
 from enum import Enum
 import math
-from typing import Callable, Optional, Tuple
+from typing import Optional, Tuple
 
 from PySide6 import QtGui, QtCore
 from PySide6.QtCore import Qt
 import numpy as np
 import torch
 
-from splat_viewer.editor.editor import AddInstance, Editor
+from splat_viewer.editor.edit import ModifyInstances, AddInstance
 from splat_viewer.editor.gaussian_scene import GaussianScene, Instance, random_color
-from splat_viewer.gaussians.data_types import Gaussians
 from splat_viewer.viewer.interaction import Interaction
 
 
@@ -25,8 +22,21 @@ def in_box(positions:torch.Tensor, lower:torch.Tensor, upper:np.array):
   return torch.nonzero(mask, as_tuple=True)[0]
 
 
+def paint_instance(scene:GaussianScene, instance_id:int, indexes:torch.Tensor):
+  assert instance_id in scene.instances
 
+  instance_ids = torch.full_like(indexes, instance_id, device=scene.device)
+  class_ids = scene.gaussians.label[indexes]
 
+  return ModifyInstances(indexes, instance_ids, class_ids)
+
+def erase_instance(scene:GaussianScene, instance_id:int, indexes:torch.Tensor):
+  assert instance_id in scene.instances
+
+  instance_ids = torch.full_like(indexes, -1, device=scene.device)
+  class_ids = torch.zeros_like(indexes, device=scene.device)
+
+  return ModifyInstances(indexes, instance_ids, class_ids)
 
 
 class DrawMode(Enum):
@@ -58,14 +68,18 @@ class InstanceEditor(Interaction):
   
   
   def mousePressEvent(self, event: QtGui.QMouseEvent):
-    if event.button() == Qt.LeftButton and self.ready_mode is not None:
-      self.mode = self.ready_mode
+    if event.button() == Qt.LeftButton:
+      if self.ready_mode is not None:
+        self.mode = self.ready_mode
+        self.draw((event.x(), event.y()))
+        return True
+      
+      else:
 
+        self.current_instance = None
+        self.scene.unselect()
 
-
-
-      self.draw((event.x(), event.y()))
-      return True
+  
     
   def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
     if event.button() == Qt.LeftButton and self.mode is not None:
@@ -80,22 +94,24 @@ class InstanceEditor(Interaction):
 
 
 
+
   def draw(self, cursor_pos:Tuple[int, int]):
     idx = self.select((cursor_pos))
-
-
-    if self.mode == DrawMode.Draw:
-      self.current_mask[idx] = True
-    elif self.mode == DrawMode.Erase:
-      self.current_mask[idx] = False
 
 
     if self.current_instance is None:
       self.current_instance = self.scene.next_instance()
       name = self.scene.class_labels[self.current_label]
       instance = Instance(self.scene.next_instance_id(), self.current_label, name, random_color())
-
       self.editor.apply(AddInstance(instance))
+
+    if self.mode == DrawMode.Draw:
+      self.current_mask[idx] = True
+    elif self.mode == DrawMode.Erase:
+      self.current_mask[idx] = False
+
+    edit = paint_instance(self.scene, self.current_instance, self.current_mask)
+    self.editor.update_edit(edit)
 
 
   def mouseMoveEvent(self, event: QtGui.QMouseEvent):

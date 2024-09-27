@@ -54,7 +54,7 @@ class Gaussians():
     assert self.instance_label is None or self.instance_label.shape[1] == 1, f"Expected shape (N, 1), got {self.instance_label.shape}"
 
     
-  def n(self):
+  def num_points(self):
     return self.batch_size[0]
 
   def __repr__(self):

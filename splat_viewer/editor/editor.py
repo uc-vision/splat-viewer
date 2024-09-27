@@ -48,13 +48,18 @@ class Editor(QObject):
     self.scene_changed.emit()
 
 
-  def apply(self, edit:Edit):
+  def apply_edit(self, edit:Edit):
     if self.scene is None:
       raise ValueError("No active scene")
     
     self.scene, undo_edit = edit.apply(self.scene)
     self.undos.append(undo_edit)
     self.redos.clear()
+    self.scene_changed.emit()
+
+
+  def modify_scene(self, scene:GaussianScene):
+    self.scene = scene
     self.scene_changed.emit()
   
   def undo(self) -> bool:
