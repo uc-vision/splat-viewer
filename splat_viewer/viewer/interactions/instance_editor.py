@@ -52,32 +52,56 @@ class InstanceEditor(Interaction):
     self.mode: Optional[DrawMode] = None
     self.current_label = 0
 
-    self.current_instance:Optional[int] = None
     self.current_mask = torch.zeros(self.gaussians.position.shape[0], dtype=torch.bool, device=self.gaussians.device)
-
     self.color = (1, 0, 0)
 
 
   @property
   def ready_mode(self) -> Optional[DrawMode]:
-    draw = bool(self.modifiers & Qt.ControlModifier)
-    erase = bool(self.modifiers & Qt.ShiftModifier) and self.current_instance is not None
 
-    return DrawMode.Draw if draw else DrawMode.Erase if erase else None
-  
-  
-  
-  def mousePressEvent(self, event: QtGui.QMouseEvent):
-    if event.button() == Qt.LeftButton:
-      if self.ready_mode is not None:
-        self.mode = self.ready_mode
-        self.draw((event.x(), event.y()))
-        return True
-      
+    if self.current_instance is not None:
+      if bool(self.modifiers & Qt.ControlModifier):
+        return DrawMode.Erase
       else:
+        return DrawMode.Draw
 
-        self.current_instance = None
-        self.scene.unselect()
+    if bool(self.modifiers & Qt.ShiftModifier):
+      return DrawMode.Select
+
+    return None
+  
+
+  def keyPressEvent(self, event: QtGui.QKeyEvent):
+    # mode = self.ready_mode
+    # if mode == DrawMode.Select:
+    #   # set cursor to crosshair
+    #   self.scene_widget.setCursor(Qt.CursorShape.CrossCursor)
+    #   return True
+    # elif mode in [DrawMode.Draw, DrawMode.Erase]:
+
+    #   # Hide the cursor when in Draw mode
+    #   self.scene_widget.setCursor(Qt.CursorShape.BlankCursor)
+    #   return True
+    # else:
+    #   self.scene_widget.setCursor(Qt.CursorShape.ArrowCursor)
+
+    return False
+
+  @property
+  def current_instance(self) -> Optional[int]:
+    return self.scene.selected_instance
+
+  def mousePressEvent(self, event: QtGui.QMouseEvent):
+    pass
+    # if event.button() == Qt.LeftButton and self.current_instance is not None:
+    #   if self.ready_mode is not None:
+    #     self.mode = self.ready_mode
+    #     self.draw((event.x(), event.y()))
+    #     return True
+      
+    #   else:
+
+    #     self.editor.unselect_instance()
 
   
     
@@ -131,16 +155,22 @@ class InstanceEditor(Interaction):
 
 
   def paintEvent(self, event: QtGui.QPaintEvent, dirty:bool):
-    painter = QtGui.QPainter(self.scene_widget)
-    painter.setRenderHint(QtGui.QPainter.Antialiasing)
 
-    color = Qt.red if self.ready == DrawMode.Draw else Qt.green if self.ready == DrawMode.Erase else Qt.black
-    painter.setPen(QtGui.QPen(color, 1, Qt.DashLine))
+      mode = self.ready_mode
 
-    point = QtCore.QPointF(*self.cursor_pos)
-    painter.drawEllipse(point, 
-                        self.settings.brush_size, self.settings.brush_size)
-    painter.end()
-      
+      painter = QtGui.QPainter(self.scene_widget)
+      painter.setRenderHint(QtGui.QPainter.Antialiasing)
+
+      if mode in [DrawMode.Draw, DrawMode.Erase]:
+        color = Qt.red if mode == DrawMode.Erase else Qt.green
+        painter.setPen(QtGui.QPen(color, 1, Qt.DashLine))
+
+        point = QtCore.QPointF(*self.cursor_pos)
+        painter.drawEllipse(point, 
+                            self.settings.brush_size, self.settings.brush_size)
+        
+
+      painter.end()
+        
 
 

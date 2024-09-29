@@ -152,8 +152,8 @@ class WorkspaceRenderer:
 
   def render_gaussians(self, scene:GaussianScene, camera:FOVCamera, settings:Settings) -> Rendering:
     render_state = self.render_state.update_setting(settings)
-
     if self.scene_ref() != scene or self.packed_gaussians is None or self.render_state != render_state:
+
       self.packed_gaussians = self.gaussian_renderer.pack_inputs(
         self.updated_gaussians(scene, render_state))
       

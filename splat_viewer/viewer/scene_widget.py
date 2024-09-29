@@ -81,7 +81,7 @@ class SceneWidget(QtWidgets.QWidget):
   def load_workspace(self, workspace:Workspace, gaussians:Gaussians):
     self.workspace = workspace
 
-    scene = GaussianScene.from_gaussians(gaussians, class_labels=["negative", "apple"])
+    scene = GaussianScene.from_gaussians(gaussians.to(self.settings.device), class_labels=["negative", "apple"])
     self.editor.set_scene(scene)
 
     self.scene_renderer = WorkspaceRenderer(workspace, self.renderer, self.settings.device)
@@ -106,6 +106,7 @@ class SceneWidget(QtWidgets.QWidget):
     class_labels = self.scene.class_labels
     scene = GaussianScene.from_gaussians(gaussians.to(self.settings.device), 
                                          class_labels=class_labels)
+    
     self.editor.set_scene(scene)  
 
   @property
@@ -238,7 +239,7 @@ class SceneWidget(QtWidgets.QWidget):
     return super().keyPressEvent(event)
   
 
-  def update_camera(self):
+  def update(self):
     self.camera_state._update(1 / self.settings.update_rate)
     self.repaint()
 
@@ -324,18 +325,19 @@ class SceneWidget(QtWidgets.QWidget):
     return self.camera.resized(self.image_size)
   
 
+
   def render(self):
     camera = self.render_camera()
-    scene = self.edited_scene or self.editor.scene 
 
     self.view_image = np.ascontiguousarray(
-      self.scene_renderer.render(self.current_scene, camera, self.settings))
+      self.scene_renderer.render(self.scene , camera, self.settings))
         
     self.view_dirty = False
     return self.view_image
 
       
   def paintEvent(self, event: QtGui.QPaintEvent):
+    view_dirty = self.view_dirty
     try:
       with QtGui.QPainter(self) as painter:
         self.render()
@@ -347,7 +349,7 @@ class SceneWidget(QtWidgets.QWidget):
         
 
         painter.drawImage(0, 0, image)
-        self.tool.trigger_paint(event)
+        self.tool.trigger_paint(event, view_dirty)
     except Exception:
       traceback.print_exc()
       QtWidgets.QApplication.quit()
@@ -406,12 +408,15 @@ class SceneWidget(QtWidgets.QWidget):
 
   def move_camera(self, delta:np.ndarray):
     self.camera.move(delta)
+    self.view_dirty = True
 
   def rotate_camera(self, delta:np.ndarray):
     self.camera.rotate(delta)
+    self.view_dirty = True
 
   def set_camera_pose(self, r:np.ndarray, t:np.ndarray):
     self.camera.set_pose(r, t)
+    self.view_dirty = True
 
 
 
