@@ -56,11 +56,11 @@ class GaussianScene:
 
 
   @property
-  def device(self) -> str:
+  def device(self) -> torch.device:
     return self.gaussians.device
 
   @staticmethod
-  def empty(device:str = 'cpu'):
+  def empty(device:str | torch.device = torch.device('cpu')):
     return GaussianScene(Gaussians.empty(device=device), ["object"])
 
 
@@ -86,20 +86,6 @@ class GaussianScene:
 
 
 
-  @cached_property
-  def instance_colors(self) -> torch.Tensor:
-    colors = torch.tensor([i.color for i in self.instances.values()])
-    return colors.to(self.gaussians.device)
-
-
-  @cached_property
-  def instance_color_mask(self) -> tuple[torch.Tensor, torch.Tensor]:
-    colors = self.instance_colors
-    
-    mask = self.gaussians.instance_labels > 0
-    colors = self.instance_colors[self.gaussians.instance_labels]
-
-    return colors, mask
   
 
   @cached_property

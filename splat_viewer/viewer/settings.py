@@ -50,6 +50,7 @@ class Settings:
   show : Show = Show()
   view_mode : ViewMode = ViewMode.Normal
 
-  brush_size : int = 10
+  brush_size : float = 10.
+  select_radius : float = 8.
   
 

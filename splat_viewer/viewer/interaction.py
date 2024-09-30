@@ -145,10 +145,15 @@ class Interaction():
     return self.editor.apply(edit)
   
   def unselect_instance(self):
-    return self.editor.modify(self.scene.unselected())
+    if self.scene.selected_instance is not None:
+      return self.editor.modify_scene(self.scene.unselected())
+    return self.scene
   
   def select_instance(self, instance_id:int):
-    return self.editor.modify(self.scene.selected(instance_id))
+    if self.scene.selected_instance != instance_id:
+      return self.editor.modify_scene(self.scene.selected(instance_id))
+    
+    return self.scene
 
 
   @property

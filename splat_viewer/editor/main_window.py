@@ -71,6 +71,8 @@ def create_window(scene_widget:SceneWidget):
   window.setCentralWidget(scene_widget)
 
 
+  scene_widget.setFocus()
+
   return window
 
 

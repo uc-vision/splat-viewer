@@ -4,6 +4,7 @@ from typing import Optional, Tuple
 
 from PySide6 import QtGui, QtCore
 from PySide6.QtCore import Qt
+from beartype import beartype
 import numpy as np
 import torch
 
@@ -20,6 +21,14 @@ def in_sphere(positions:torch.Tensor, center:torch.Tensor, radius:float):
 def in_box(positions:torch.Tensor, lower:torch.Tensor, upper:np.array):
   mask = ((positions >= lower) & (positions <= upper)).all(dim=-1)
   return torch.nonzero(mask, as_tuple=True)[0]
+
+
+def instance_counts(scene:GaussianScene, indexes:torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+  instance_ids = scene.gaussians.instance_label[indexes]
+  instance_ids = instance_ids[instance_ids >= 0]
+
+  unique, counts = torch.unique(instance_ids, return_counts=True)
+  return unique, counts
 
 
 def paint_instance(scene:GaussianScene, instance_id:int, indexes:torch.Tensor):
@@ -56,71 +65,77 @@ class InstanceEditor(Interaction):
     self.color = (1, 0, 0)
 
 
-  @property
-  def ready_mode(self) -> Optional[DrawMode]:
+  def ready_mode(self, modifiers:Qt.KeyboardModifiers) -> Optional[DrawMode]:
 
-    if self.current_instance is not None:
-      if bool(self.modifiers & Qt.ControlModifier):
-        return DrawMode.Erase
-      else:
+    if bool(modifiers & Qt.ControlModifier):
         return DrawMode.Draw
-
-    if bool(self.modifiers & Qt.ShiftModifier):
-      return DrawMode.Select
+    
+    if self.current_instance is not None and bool(modifiers & Qt.ShiftModifier):
+      return DrawMode.Erase
 
     return None
   
+  def cursor_mode(self, modifiers:Qt.KeyboardModifiers) -> Qt.CursorShape:
+    mode = self.ready_mode(modifiers)
+    if mode == DrawMode.Select:
+      return Qt.CursorShape.CrossCursor
+    elif mode in [DrawMode.Draw, DrawMode.Erase]:
+      return Qt.CursorShape.BlankCursor
+    else:
+      return Qt.CursorShape.ArrowCursor
+
+
 
   def keyPressEvent(self, event: QtGui.QKeyEvent):
-    # mode = self.ready_mode
-    # if mode == DrawMode.Select:
-    #   # set cursor to crosshair
-    #   self.scene_widget.setCursor(Qt.CursorShape.CrossCursor)
-    #   return True
-    # elif mode in [DrawMode.Draw, DrawMode.Erase]:
-
-    #   # Hide the cursor when in Draw mode
-    #   self.scene_widget.setCursor(Qt.CursorShape.BlankCursor)
-    #   return True
-    # else:
-    #   self.scene_widget.setCursor(Qt.CursorShape.ArrowCursor)
-
+    self.scene_widget.setCursor(self.cursor_mode(event.modifiers()))
+    return False
+  
+  def keyReleaseEvent(self, event: QtGui.QKeyEvent):
+    self.scene_widget.setCursor(self.cursor_mode(event.modifiers()))
     return False
 
   @property
   def current_instance(self) -> Optional[int]:
     return self.scene.selected_instance
 
-  def mousePressEvent(self, event: QtGui.QMouseEvent):
-    pass
-    # if event.button() == Qt.LeftButton and self.current_instance is not None:
-    #   if self.ready_mode is not None:
-    #     self.mode = self.ready_mode
-    #     self.draw((event.x(), event.y()))
-    #     return True
-      
-    #   else:
+  def mousePressEvent(self, event: QtGui.QMouseEvent) -> bool:
+    mode = self.ready_mode(event.modifiers())
+    cursor_pos = (event.x(), event.y())
 
-    #     self.editor.unselect_instance()
+    if mode is None:       
+      instance = self.get_select_instance(cursor_pos)
+      if instance is not None:
+        self.select_instance(instance)
+        return True
 
-  
+    return False
     
-  def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
+  def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> bool:
     if event.button() == Qt.LeftButton and self.mode is not None:
       self.mode = None
       return True
     
-  def select(self, cursor_pos:Tuple[int, int]):
+  @beartype
+  def get_select_sphere(self, cursor_pos:Tuple[int, int], radius:float) -> torch.Tensor:
     depth = self.lookup_depth(cursor_pos)
 
-    p, r = self.unproject_radius(cursor_pos, depth, self.settings.brush_size)
+    p, r = self.unproject_radius(cursor_pos, depth, radius)
     return in_sphere(self.gaussians.position, self.from_numpy(p), r)
 
-
+  @beartype
+  def get_select_instance(self, cursor_pos:Tuple[int, int]) -> Optional[int]:
+    idx = self.get_select_sphere(cursor_pos, self.settings.select_radius)
+    unique, counts = instance_counts(self.scene, idx)
+    
+    if counts.shape[0] == 0:
+      return None
+    
+    idx = unique[counts.argmax()]
+    return idx.item()
 
 
   def draw(self, cursor_pos:Tuple[int, int]):
-    idx = self.select((cursor_pos))
+    idx = self.get_select_sphere(cursor_pos, self.settings.brush_size)
 
 
     if self.current_instance is None:
@@ -156,7 +171,7 @@ class InstanceEditor(Interaction):
 
   def paintEvent(self, event: QtGui.QPaintEvent, dirty:bool):
 
-      mode = self.ready_mode
+      mode = self.ready_mode(self.modifiers)
 
       painter = QtGui.QPainter(self.scene_widget)
       painter.setRenderHint(QtGui.QPainter.Antialiasing)

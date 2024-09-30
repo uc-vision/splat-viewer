@@ -22,8 +22,7 @@ def add_render_arguments(parser):
 
 class RendererImpl(Enum):
   TaichiSplatting = "taichi_splatting"
-  Taichi3DGS      = "taichi_3d_gaussian_splatting"
-  DiffGaussian    = "diff_gaussian_rasterization"
+
 
 
 @dataclass(frozen=True)
@@ -36,18 +35,11 @@ class RendererArgs:
   impl: RendererImpl = RendererImpl.TaichiSplatting
 
 def renderer_from_args(args:RendererArgs):
-  if args.impl == RendererImpl.Taichi3DGS:
-    from splat_viewer.renderer.taichi_3d_gaussian_splatting import TaichiRenderer
-    return TaichiRenderer()
-  elif args.impl == RendererImpl.DiffGaussian:
-    from splat_viewer.renderer.diff_gaussian_rasterization import DiffGaussianRenderer
-    return DiffGaussianRenderer()
-  else:
-    from splat_viewer.renderer.taichi_splatting import GaussianRenderer
-    return GaussianRenderer(tile_size=args.tile_size, 
-                                 antialias=not args.antialias,
-                                 use_depth16=args.depth16,
-                                 pixel_stride=args.pixel_stride) 
+  from splat_viewer.renderer.taichi_splatting import GaussianRenderer
+  return GaussianRenderer(tile_size=args.tile_size, 
+                                antialias=not args.antialias,
+                                use_depth16=args.depth16,
+                                pixel_stride=args.pixel_stride) 
 
 def make_renderer_args(args):
   if args.taichi:

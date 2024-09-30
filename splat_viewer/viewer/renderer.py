@@ -1,4 +1,6 @@
 from dataclasses import dataclass, replace
+from functools import cached_property
+from typing import Tuple
 import weakref
 from beartype import beartype
 
@@ -89,10 +91,11 @@ class PyrenderScene:
 class RenderState:
   fixed_size : bool = False
   fixed_opacity : bool = False
-  as_points : bool = False
   cropped : bool = False
   filtered_points: bool = False
   color_instances: bool = False
+
+  selected_color: Tuple[float, float, float] = (1., 0., 0.)
 
   def update_setting(self, settings:Settings):
     return replace(self,
@@ -105,27 +108,50 @@ class RenderState:
 def random_colors(n:int, device:torch.device):
   return (torch.randn(n, 3, device=device) * 2).sigmoid()
 
-class WorkspaceRenderer:
-  def __init__(self, workspace:Workspace, gaussian_renderer, device:torch.device):
-    self.workspace = workspace
 
-    self.packed_gaussians = None
-    self.render_state = RenderState()
+@dataclass(frozen=True)
+class SceneView:
+  scene: GaussianScene
+  state: RenderState
 
-    self.scene_ref = lambda: None
 
-    self.gaussian_renderer = gaussian_renderer
-    self.pyrender_scene = PyrenderScene(workspace)
+  @staticmethod
+  def empty(device:torch.device):
+    return SceneView(GaussianScene.empty(device=device), RenderState())
 
-    self.rendering = None
-    self.color_map = torch.from_numpy(get_cv_colormap(cv2.COLORMAP_TURBO)
-                                      ).squeeze(0).to(device=device)
+  @cached_property
+  def instance_colors(self) -> torch.Tensor:
+    instances = self.scene.instances
+
+    max_id = max(instances.keys(), default=0)
+
+    selected_color = torch.tensor(self.state.selected_color)
+    colors = torch.zeros(max_id + 1, 3, device=self.scene.device)
+
+    for i in instances.values():
+      colors[i.id] = i.color
+
+    if self.scene.selected_instance is not None:
+      colors[self.scene.selected_instance] = selected_color
+
+    return colors.to(self.scene.device)
+
+
+  @cached_property
+  def instance_color_mask(self) -> tuple[torch.Tensor, torch.Tensor]:
+    colors = self.instance_colors
     
-    self.instance_colors = None
+    instance_label = self.scene.gaussians.instance_label.squeeze(1)
 
+    mask = instance_label >= 0
+    valid_labels = instance_label[mask].long()
 
-  def updated_gaussians(self, scene:GaussianScene, state:RenderState) -> Gaussians:
-    gaussians = scene.gaussians
+    return colors[valid_labels], mask
+
+  @cached_property
+  def rendered_gaussians(self) -> Gaussians:
+    gaussians = self.scene.gaussians
+    state = self.state
 
     if state.fixed_size:
       gaussians = gaussians.with_fixed_scale(0.001)
@@ -140,7 +166,7 @@ class WorkspaceRenderer:
 
     if state.color_instances and gaussians.instance_label is not None:
 
-      instance_colors, instance_mask = scene.instance_color_mask
+      instance_colors, instance_mask = self.instance_color_mask
       gaussians = gaussians.with_colors(instance_colors, instance_mask)
 
     if state.filtered_points and gaussians.label is not None:
@@ -149,25 +175,33 @@ class WorkspaceRenderer:
     return gaussians
 
 
+class WorkspaceRenderer:
+  def __init__(self, workspace:Workspace, gaussian_renderer, device:torch.device):
+    self.workspace = workspace
+
+    self.packed_gaussians = None
+    self.scene_view = SceneView.empty(device)
+
+    self.gaussian_renderer = gaussian_renderer
+    self.pyrender_scene = PyrenderScene(workspace)
+
+    self.rendering = None
+    self.color_map = torch.from_numpy(get_cv_colormap(cv2.COLORMAP_TURBO)
+                                      ).squeeze(0).to(device=device)
+
+  @property
+  def render_state(self) -> RenderState:
+    return self.scene_view.state
+
 
   def render_gaussians(self, scene:GaussianScene, camera:FOVCamera, settings:Settings) -> Rendering:
     render_state = self.render_state.update_setting(settings)
-    if self.scene_ref() != scene or self.packed_gaussians is None or self.render_state != render_state:
+    if self.scene_view.scene is not scene or self.packed_gaussians is None or self.render_state != render_state:
 
-      self.packed_gaussians = self.gaussian_renderer.pack_inputs(
-        self.updated_gaussians(scene, render_state))
-      
-      self.render_state = render_state
-      self.scene_ref = weakref.ref(scene)
-
+      self.scene_view = SceneView(scene, render_state)
+      self.packed_gaussians = self.gaussian_renderer.pack_inputs(self.scene_view.rendered_gaussians)
+    
     return self.gaussian_renderer.render(self.packed_gaussians, camera)
-
-
-
-  def unproject_mask(self, camera:FOVCamera, 
-                mask:torch.Tensor, alpha_multiplier=1.0, threshold=1.0):
-    return self.gaussian_renderer.unproject_mask(self.gaussians, 
-          camera, mask, alpha_multiplier, threshold)
 
 
   def colormap_torch(self, depth, near=0.1):
