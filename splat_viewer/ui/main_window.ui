@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1536</width>
-    <height>1280</height>
+    <width>805</width>
+    <height>640</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -39,15 +39,57 @@
      <item>
       <widget class="QTabWidget" name="tabWidget">
        <property name="currentIndex">
-        <number>1</number>
+        <number>0</number>
        </property>
        <property name="tabBarAutoHide">
         <bool>true</bool>
        </property>
        <widget class="QWidget" name="tool_tab">
         <attribute name="title">
-         <string>Tool</string>
+         <string>Instances</string>
         </attribute>
+        <layout class="QVBoxLayout" name="verticalLayout_8">
+         <item>
+          <layout class="QGridLayout" name="gridLayout">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_5">
+             <property name="text">
+              <string>Class</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QComboBox" name="class_combo"/>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_6">
+             <property name="text">
+              <string>Name</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLineEdit" name="name_edit"/>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="QListWidget" name="instances_list"/>
+         </item>
+         <item>
+          <spacer name="verticalSpacer_3">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>194</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
        </widget>
        <widget class="QWidget" name="view_tab">
         <attribute name="title">
@@ -263,8 +305,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1536</width>
-     <height>24</height>
+     <width>805</width>
+     <height>23</height>
     </rect>
    </property>
   </widget>
@@ -284,6 +326,8 @@
    <addaction name="actionInstances"/>
    <addaction name="actionEdit_Foreground"/>
    <addaction name="separator"/>
+   <addaction name="action_undo"/>
+   <addaction name="action_redo"/>
   </widget>
   <action name="actionInstances">
    <property name="checkable">
@@ -311,6 +355,16 @@
    </property>
    <property name="text">
     <string>Settings</string>
+   </property>
+  </action>
+  <action name="action_undo">
+   <property name="text">
+    <string>Undo</string>
+   </property>
+  </action>
+  <action name="action_redo">
+   <property name="text">
+    <string>Redo</string>
    </property>
   </action>
  </widget>

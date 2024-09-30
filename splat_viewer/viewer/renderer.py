@@ -131,8 +131,8 @@ class SceneView:
     for i in instances.values():
       colors[i.id] = i.color
 
-    if self.scene.selected_instance is not None:
-      colors[self.scene.selected_instance] = selected_color
+    for i in self.scene.selected_instances:
+      colors[i] = selected_color
 
     return colors.to(self.scene.device)
 

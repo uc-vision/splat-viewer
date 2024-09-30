@@ -4,7 +4,6 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 
-from splat_viewer.editor.editor import Editor
 from splat_viewer.editor.main_window import create_window
 from splat_viewer.gaussians.workspace import load_workspace
 from splat_viewer.renderer.arguments import  add_render_arguments, make_renderer_args, renderer_from_args
@@ -64,14 +63,12 @@ def main():
     )
 
     
-    scene_widget.load_workspace(workspace, gaussians)
-  
-
     window = create_window(scene_widget)
-    
     scene_widget.load_workspace(workspace, gaussians)
+
     window.show()
     
+
     
     sys.exit(app.exec())
 

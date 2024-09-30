@@ -35,7 +35,7 @@ from .settings import Settings, ViewMode
 
 class SceneWidget(QtWidgets.QWidget):
   settings_changed = QtCore.Signal(Settings)
-  scene_changed = QtCore.Signal()
+  scene_changed = QtCore.Signal(GaussianScene, GaussianScene)
   
   def __init__(self, renderer:GaussianRenderer, 
                settings:Settings = Settings(),
@@ -74,14 +74,16 @@ class SceneWidget(QtWidgets.QWidget):
     self.settings_changed.emit(self.settings)
 
   
-  def emit_scene_changed(self):
-    self.scene_changed.emit()
+  def emit_scene_changed(self, previous:Optional[GaussianScene], scene:GaussianScene):
+    self.scene_changed.emit(previous, scene)
+
+    self.tool.trigger_scene_changed(previous, scene)
 
 
   def load_workspace(self, workspace:Workspace, gaussians:Gaussians):
     self.workspace = workspace
 
-    scene = GaussianScene.from_gaussians(gaussians.to(self.settings.device), class_labels=["negative", "apple"])
+    scene = GaussianScene.from_gaussians(gaussians.to(self.settings.device), class_labels=["apple"])
     self.editor.set_scene(scene)
 
     self.scene_renderer = WorkspaceRenderer(workspace, self.renderer, self.settings.device)
@@ -90,8 +92,6 @@ class SceneWidget(QtWidgets.QWidget):
     self.set_camera_index(0)
 
     self.camera_state = FlyControl()
-    self.tool = InstanceEditor()
-
     self.editor.scene_changed.connect(self.emit_scene_changed)
     
 

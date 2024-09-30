@@ -1,20 +1,26 @@
 from dataclasses import replace
 from pathlib import Path
+from typing import Optional
 
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtGui import QIcon
 
 import qtawesome as qta
 
+from splat_viewer.editor.gaussian_scene import GaussianScene, Instance
+from splat_viewer.editor.util import load_ui
+from splat_viewer.viewer.interactions.instance_editor import InstanceEditor
 from splat_viewer.viewer.scene_widget import SceneWidget, Settings
 from splat_viewer.viewer.settings import ViewMode
 
+from PySide6.QtGui import QColor
+from PySide6.QtGui import QPixmap
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QListWidgetItem, QAbstractItemView, QListWidget
+from PySide6.QtGui import QIcon
 
 def create_window(scene_widget:SceneWidget):
-  ui_path = Path(__file__).parent.parent / "ui"
-
-  loader = QUiLoader()
-  window = loader.load(ui_path / "main_window.ui")
+  window = load_ui(Path("main_window.ui"))
 
   show_checkboxes = dict(
       initial_points = window.show_initial_points,
@@ -70,7 +76,80 @@ def create_window(scene_widget:SceneWidget):
   window.view_mode.currentIndexChanged.connect(on_view_mode_changed)
   window.setCentralWidget(scene_widget)
 
+  scene_widget.tool = InstanceEditor()
+  editor = scene_widget.editor
 
+  def set_class_labels(labels:list[str]):
+    selected = window.class_combo.currentText()
+    window.class_combo.clear()
+    for label in labels:
+      window.class_combo.addItem(label)
+
+    print(selected)
+    window.class_combo.setCurrentText(selected)
+
+  def set_instances(scene:GaussianScene):
+    inst_list = window.instances_list
+    inst_list.clear()
+
+    for k, instance in scene.instances.items():
+        # Create a color icon
+        color_pixmap = QPixmap(20, 20)
+        color_pixmap.fill(QColor(*[int(c * 255) for c in instance.color]))
+        color_icon = QIcon(color_pixmap)
+
+        # Create a list item with icon and text
+        item = QListWidgetItem(color_icon, instance.name)
+        
+        # Set the instance id as item data for later reference
+        item.setData(Qt.UserRole, k)
+        inst_list.addItem(item)
+
+    inst_list.setSelectionMode(QAbstractItemView.SingleSelection)
+    
+  def find_row(inst_list:QListWidget, instance_id:int):
+    for i in range(inst_list.count()):
+      item = inst_list.item(i)
+      if item.data(Qt.UserRole) == instance_id:
+        return item
+    return None
+
+
+  def update_instaces(previous:GaussianScene, current:GaussianScene):
+    if current.class_labels != previous.class_labels:
+      set_class_labels(current.class_labels)
+
+    if previous.instances.keys() != current.instances.keys():
+      set_instances(current)
+    
+    inst_list = window.instances_list
+    if len(current.selected_instances) > 0:
+
+      for i in current.selected_instances:
+        item = find_row(inst_list, i)
+        if item is not None:
+          item.setSelected(True)
+          inst_list.setCurrentItem(item)
+
+
+    
+  def on_instance_changed(item:Optional[QListWidgetItem]):
+    if item is None:
+      editor.modify_scene(editor.scene.with_unselected())
+    else:
+      instance_id = item.data(Qt.UserRole)
+      editor.modify_scene(editor.scene.with_selected({instance_id}))
+
+
+  window.instances_list.itemClicked.connect(on_instance_changed)
+  
+
+  window.action_undo.setEnabled(editor.can_undo)
+  window.action_redo.setEnabled(editor.can_redo)
+      
+
+
+  scene_widget.editor.scene_changed.connect(update_instaces)
   scene_widget.setFocus()
 
   return window

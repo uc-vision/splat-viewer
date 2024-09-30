@@ -1,7 +1,7 @@
 
 
 from abc import ABCMeta, abstractmethod
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from splat_viewer.editor.gaussian_scene import GaussianScene
 
@@ -17,7 +17,7 @@ class Edit( metaclass=ABCMeta):
 
 
 class Editor(QObject):
-  scene_changed = Signal()
+  scene_changed = Signal(GaussianScene, GaussianScene)
 
   def __init__(self, scene:GaussianScene, parent:QObject = None):
     super().__init__(parent)
@@ -32,55 +32,63 @@ class Editor(QObject):
     Replace the last edit in the undo stack.
     """
     assert len(self.undos) > 0
+    previous = self.scene
 
     last_undo = self.undos.pop()
-    scene, _ = last_undo.apply(self.scene)
-    self.scene, undo = edit.apply(scene)
-    self.undos.append(undo)
+    self.scene, _ = last_undo.apply(self.scene)
+    self.scene, undo = edit.apply(self.scene)
 
-    self.scene_changed.emit()
+    self.undos.append(undo)
+    self.scene_changed.emit(previous, self.scene)
 
   def set_scene(self, scene:GaussianScene):
-    self.scene = scene
     self.undos.clear()
     self.redos.clear()
 
-    self.scene_changed.emit()
+    previous = self.scene
+    self.scene = scene
+    
+    self.scene_changed.emit(previous, scene)
 
 
   def apply_edit(self, edit:Edit):
     if self.scene is None:
       raise ValueError("No active scene")
+  
+    previous = self.scene
     
     self.scene, undo_edit = edit.apply(self.scene)
     self.undos.append(undo_edit)
     self.redos.clear()
-    self.scene_changed.emit()
+    self.scene_changed.emit(previous, self.scene)
 
 
   def modify_scene(self, scene:GaussianScene):
+    previous = self.scene
     self.scene = scene
-    self.scene_changed.emit()
+    self.scene_changed.emit(previous, self.scene)
   
   def undo(self) -> bool:
     if not self.undos:
       return False
     
+    previous = self.scene
     edit = self.undos.pop()
     self.scene, redo_edit = edit.undo(self.scene)
     self.redos.append(redo_edit)
-    self.scene_changed.emit()
+    self.scene_changed.emit(previous, self.scene)
     return True
   
   def redo(self) -> bool:
     if not self.redos:
       return False
     
+    previous = self.scene
     edit = self.redos.pop()
     self.scene, undo_edit = edit.apply(self.scene)
     self.undos.append(undo_edit)
-    self.scene_changed.emit()
 
+    self.scene_changed.emit(previous, self.scene)
     return True
   
   @property

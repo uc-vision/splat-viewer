@@ -1,5 +1,6 @@
 from enum import Enum
 import math
+from pathlib import Path
 from typing import Optional, Tuple
 
 from PySide6 import QtGui, QtCore
@@ -10,6 +11,7 @@ import torch
 
 from splat_viewer.editor.edit import ModifyInstances, AddInstance
 from splat_viewer.editor.gaussian_scene import GaussianScene, Instance, random_color
+from splat_viewer.editor.util import load_ui
 from splat_viewer.viewer.interaction import Interaction
 
 
@@ -54,6 +56,7 @@ class DrawMode(Enum):
   Select = 2
 
 
+
 class InstanceEditor(Interaction):
   def __init__(self):
     super(InstanceEditor, self).__init__()
@@ -65,8 +68,13 @@ class InstanceEditor(Interaction):
     self.color = (1, 0, 0)
 
 
-  def ready_mode(self, modifiers:Qt.KeyboardModifiers) -> Optional[DrawMode]:
+  def on_activate(self):
+    self.ui = load_ui(Path("instance_editor.ui"), None)
+    self.set_tool_ui(self.ui)
 
+
+
+  def ready_mode(self, modifiers:Qt.KeyboardModifiers) -> Optional[DrawMode]:
     if bool(modifiers & Qt.ControlModifier):
         return DrawMode.Draw
     
@@ -96,7 +104,11 @@ class InstanceEditor(Interaction):
 
   @property
   def current_instance(self) -> Optional[int]:
-    return self.scene.selected_instance
+    instances = set(self.scene.selected_instances)
+    if len(instances) == 1: 
+      return instances.pop()
+    else:
+      return None
 
   def mousePressEvent(self, event: QtGui.QMouseEvent) -> bool:
     mode = self.ready_mode(event.modifiers())

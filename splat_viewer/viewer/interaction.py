@@ -59,12 +59,9 @@ class Interaction():
   def has_child(self):
     return self._child is not None
 
-  def trigger_event(self, event: QEvent) -> bool:
-    if self.has_child:
-      if self._child.trigger_event(event):
-        return True
-      
-    return self.event(event) 
+
+    
+    return self.on_scene_change()
   
   def _update(self, dt:float) -> bool:
     if self.has_child:
@@ -99,6 +96,20 @@ class Interaction():
     return self.paintEvent(event, view_changed) 
   
 
+  def trigger_event(self, event: QEvent) -> bool:
+    if self.has_child:
+      if self._child.trigger_event(event):
+        return True
+      
+    return self.event(event) 
+  
+  def trigger_scene_changed(self, previous:Optional[GaussianScene], scene:GaussianScene):
+    if self.has_child:
+      if self._child.trigger_scene_changed(previous, scene):
+        return True
+    
+    return self.on_scene_changed(previous, scene)
+  
   def keyPressEvent(self, event: QtGui.QKeyEvent):
     return False
 
@@ -136,6 +147,10 @@ class Interaction():
   def on_deactivate(self):
     pass
 
+
+  def on_scene_changed(self, previous:Optional[GaussianScene], scene:GaussianScene):
+    pass
+
   @property
   def editor(self) -> Editor:
     return self.scene_widget.editor
@@ -145,13 +160,13 @@ class Interaction():
     return self.editor.apply(edit)
   
   def unselect_instance(self):
-    if self.scene.selected_instance is not None:
-      return self.editor.modify_scene(self.scene.unselected())
+    if len(self.scene.selected_instances) > 0:
+      return self.editor.modify_scene(self.scene.with_unselected())
     return self.scene
   
   def select_instance(self, instance_id:int):
-    if self.scene.selected_instance != instance_id:
-      return self.editor.modify_scene(self.scene.selected(instance_id))
+    if self.scene.selected_instances != {instance_id}:
+      return self.editor.modify_scene(self.scene.with_selected({instance_id}))
     
     return self.scene
 
@@ -161,6 +176,7 @@ class Interaction():
     from .scene_widget import SceneWidget
     return SceneWidget.instance
   
+
   @property
   def scene(self) -> GaussianScene:
     return self.scene_widget.scene

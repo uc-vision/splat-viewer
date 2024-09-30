@@ -1,8 +1,8 @@
 
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from functools import cached_property
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple, Set
 from beartype import beartype
 from immutables import Map
 import torch
@@ -31,10 +31,10 @@ def instances_from_gaussians(gaussians:Gaussians, class_labels:list[str]) -> Map
     point_indices = (gaussians.instance_label == i).nonzero()[0]
     class_id = gaussians.label[point_indices][0].item()
 
-    return Instance(i, class_id, class_labels[class_id], random_color())
+    return Instance(i, class_id, f"{class_labels[class_id - 1]}_{i}", random_color())
 
-  instance_ids = torch.unique(gaussians.instance_label).tolist()  
-  return Map({i:get_instance(i) for i in instance_ids})
+  instance_ids = sorted(torch.unique(gaussians.instance_label).tolist())    
+  return Map({i:get_instance(i) for i in instance_ids if i >= 0})
 
 
 @beartype
@@ -44,15 +44,15 @@ class GaussianScene:
   class_labels: list[str]
 
   instances: Map[int, Instance] = Map()
-  selected_instance: Optional[int] = None
+  selected_instances: Set[int] = field(default_factory=set)
 
 
-  def unselected(self) -> 'GaussianScene':
-    return replace(self, selected_instance=None)
+  def with_unselected(self) -> 'GaussianScene':
+    return replace(self, selected_instances=set())
 
-
-  def selected(self, instance_id:int) -> 'GaussianScene':
-    return replace(self, selected_instance=instance_id)
+  @beartype
+  def with_selected(self, instance_ids:Set[int]) -> 'GaussianScene':
+    return replace(self, selected_instances=instance_ids)
 
 
   @property
@@ -75,14 +75,14 @@ class GaussianScene:
     instances = self.instances | {instance.id: instance}
     return replace(self, 
           instances=instances, 
-          selected_instance=instance.id if select else self.selected_instance)
+          selected_instances={instance.id} if select else self.selected_instances)
 
 
   def remove_instance(self, instance_id:int) -> 'GaussianScene':
     assert instance_id in self.instances
     return replace(self, 
           instances=self.instances.delete(instance_id), 
-          selected_instance=None if self.selected_instance == instance_id else self.selected_instance)
+          selected_instances=self.selected_instances - {instance_id})
 
 
 
@@ -102,5 +102,5 @@ class GaussianScene:
   @staticmethod
   def from_gaussians(gaussians:Gaussians, class_labels:list[str]):
     instances = instances_from_gaussians(gaussians, class_labels)
-    return GaussianScene(gaussians, class_labels, instances)
+    return GaussianScene(gaussians, class_labels, instances, set())
 
