@@ -19,6 +19,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QListWidgetItem, QAbstractItemView, QListWidget
 from PySide6.QtGui import QIcon
 
+from PySide6.QtGui import QKeySequence
+
+
 def create_window(scene_widget:SceneWidget):
   window = load_ui(Path("main_window.ui"))
 
@@ -49,7 +52,10 @@ def create_window(scene_widget:SceneWidget):
 
   window.setWindowIcon(QIcon(qta.icon('mdi.cube-scan')))
   window.actionInstances.setIcon(QIcon(qta.icon('mdi.draw')))
-  window.actionEdit_Foreground.setIcon(QIcon(qta.icon('mdi.eraser')))
+  window.actionErase_labels.setIcon(QIcon(qta.icon('mdi.eraser')))
+  window.actionUndo.setIcon(QIcon(qta.icon('mdi.undo')))
+  window.actionRedo.setIcon(QIcon(qta.icon('mdi.redo')))
+  window.actionDelete.setIcon(QIcon(qta.icon('mdi.delete')))
 
 
   def show(key:str, checked:bool):
@@ -123,7 +129,8 @@ def create_window(scene_widget:SceneWidget):
       set_instances(current)
     
     inst_list = window.instances_list
-    if len(current.selected_instances) > 0:
+    has_selection = len(current.selected_instances) > 0
+    if has_selection:
 
       for i in current.selected_instances:
         item = find_row(inst_list, i)
@@ -132,6 +139,12 @@ def create_window(scene_widget:SceneWidget):
           inst_list.setCurrentItem(item)
 
 
+    window.actionDelete.setEnabled(has_selection)
+    
+    window.actionUndo.setEnabled(editor.can_undo)
+    window.actionRedo.setEnabled(editor.can_redo)
+
+    
     
   def on_instance_changed(item:Optional[QListWidgetItem]):
     if item is None:
@@ -144,9 +157,8 @@ def create_window(scene_widget:SceneWidget):
   window.instances_list.itemClicked.connect(on_instance_changed)
   
 
-  window.action_undo.setEnabled(editor.can_undo)
-  window.action_redo.setEnabled(editor.can_redo)
-      
+  window.actionUndo.triggered.connect(editor.undo)
+  window.actionRedo.triggered.connect(editor.redo)
 
 
   scene_widget.editor.scene_changed.connect(update_instaces)

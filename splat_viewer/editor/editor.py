@@ -98,6 +98,17 @@ class Editor(QObject):
   @property
   def can_redo(self) -> bool:
     return len(self.redos) > 0
+  
+
+  def select_instance(self, instance_ids:set[int]):
+    self.modify_scene(self.scene.with_selected(instance_ids))
+  
+  def unselect(self):
+    self.modify_scene(self.scene.with_unselected())
+
+
+  def delete_selected(self):
+    self.push_edit(DeleteSelected())
 
 
 

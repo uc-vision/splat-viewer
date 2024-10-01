@@ -19,6 +19,13 @@ class Instance:
   color: torch.Tensor
 
 
+@dataclass
+class PointLabels:
+  indexes: torch.Tensor
+  instance_id: torch.Tensor
+  class_id: torch.Tensor
+
+
 def random_color():
   return torch.sigmoid(torch.randn(3))
   
@@ -67,22 +74,28 @@ class GaussianScene:
   def next_instance_id(self) -> int:
     return max(self.instances.keys(), default=0) 
   
+  def modify_points(self, indexes:torch.Tensor, instance_ids:torch.Tensor, class_ids:torch.Tensor) -> 'GaussianScene':
+    return replace(self, 
+          gaussians=replace(self.gaussians, 
+          instance_label=torch.index_put(self.gaussians.instance_label, (indexes,), instance_ids), 
+          label=torch.index_put(self.gaussians.label, (indexes,), class_ids)))
 
+  def add_instances(self, instances:Map[int, Instance], select:bool = True) -> 'GaussianScene':
+    assert all(instance.id not in self.instances for instance in instances.values())
 
-  def add_instance(self, instance:Instance, select:bool = True) -> 'GaussianScene':
-    assert instance.id not in self.instances
-
-    instances = self.instances | {instance.id: instance}
+    instances = self.instances | instances
     return replace(self, 
           instances=instances, 
-          selected_instances={instance.id} if select else self.selected_instances)
+          selected_instances=set(instances.keys()) if select else self.selected_instances)
 
 
-  def remove_instance(self, instance_id:int) -> 'GaussianScene':
-    assert instance_id in self.instances
+  def remove_instances(self, instance_ids:Set[int]) -> 'GaussianScene':
+    assert all(instance_id in self.instances for instance_id in instance_ids)
+
+
     return replace(self, 
-          instances=self.instances.delete(instance_id), 
-          selected_instances=self.selected_instances - {instance_id})
+          instances=self.instances.delete(instance_ids), 
+          selected_instances=self.selected_instances - instance_ids)
 
 
 

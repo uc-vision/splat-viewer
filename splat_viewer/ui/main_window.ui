@@ -324,47 +324,73 @@
     <bool>false</bool>
    </attribute>
    <addaction name="actionInstances"/>
-   <addaction name="actionEdit_Foreground"/>
+   <addaction name="actionErase_labels"/>
+   <addaction name="actionMulti_select"/>
    <addaction name="separator"/>
-   <addaction name="action_undo"/>
-   <addaction name="action_redo"/>
+   <addaction name="actionUndo"/>
+   <addaction name="actionRedo"/>
+   <addaction name="separator"/>
+   <addaction name="actionDelete"/>
   </widget>
   <action name="actionInstances">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="icon">
-    <iconset theme="mdi-brush">
+    <iconset>
      <normaloff>../../../../.designer/backup</normaloff>../../../../.designer/backup</iconset>
    </property>
    <property name="text">
-    <string>Annotate Instances</string>
+    <string>Annotate instances</string>
    </property>
   </action>
-  <action name="actionEdit_Foreground">
+  <action name="actionErase_labels">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Edit Foreground</string>
+    <string>Erase labels</string>
+   </property>
+   <property name="toolTip">
+    <string>Erase labels</string>
    </property>
   </action>
-  <action name="actionSettings">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Settings</string>
-   </property>
-  </action>
-  <action name="action_undo">
+  <action name="actionUndo">
    <property name="text">
     <string>Undo</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Z</string>
+   </property>
   </action>
-  <action name="action_redo">
+  <action name="actionRedo">
    <property name="text">
     <string>Redo</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+Z</string>
+   </property>
+  </action>
+  <action name="actionMulti_select">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Multi-select</string>
+   </property>
+   <property name="toolTip">
+    <string>Select multiple</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="actionDelete">
+   <property name="text">
+    <string>Delete</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+D</string>
    </property>
   </action>
  </widget>

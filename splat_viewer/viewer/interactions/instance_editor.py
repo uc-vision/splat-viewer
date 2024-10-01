@@ -119,6 +119,8 @@ class InstanceEditor(Interaction):
       if instance is not None:
         self.select_instance(instance)
         return True
+      else:
+        self.unselect_instance()
 
     return False
     
