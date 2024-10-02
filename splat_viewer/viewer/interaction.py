@@ -7,7 +7,7 @@ from beartype import beartype
 import numpy as np
 import torch
 from splat_viewer.editor.edit import Edit
-from splat_viewer.editor.editor import Editor
+from splat_viewer.editor.editor import EditorState
 from splat_viewer.editor.gaussian_scene import GaussianScene
 from splat_viewer.gaussians.data_types import Gaussians, Rendering
 
@@ -152,7 +152,7 @@ class Interaction():
     pass
 
   @property
-  def editor(self) -> Editor:
+  def editor(self) -> EditorState:
     return self.scene_widget.editor
   
 

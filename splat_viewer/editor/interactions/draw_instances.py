@@ -57,9 +57,9 @@ class DrawMode(Enum):
 
 
 
-class InstanceEditor(Interaction):
+class DrawInstances(Interaction):
   def __init__(self):
-    super(InstanceEditor, self).__init__()
+    super(DrawInstances, self).__init__()
 
     self.mode: Optional[DrawMode] = None
     self.current_label = 0

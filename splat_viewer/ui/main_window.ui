@@ -306,7 +306,7 @@
      <x>0</x>
      <y>0</y>
      <width>805</width>
-     <height>23</height>
+     <height>24</height>
     </rect>
    </property>
   </widget>
@@ -323,16 +323,17 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="actionInstances"/>
-   <addaction name="actionErase_labels"/>
-   <addaction name="actionMulti_select"/>
+   <addaction name="actionDraw"/>
+   <addaction name="actionEraser"/>
+   <addaction name="actionSelect"/>
+   <addaction name="actionSAM"/>
    <addaction name="separator"/>
    <addaction name="actionUndo"/>
    <addaction name="actionRedo"/>
    <addaction name="separator"/>
    <addaction name="actionDelete"/>
   </widget>
-  <action name="actionInstances">
+  <action name="actionDraw">
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -341,18 +342,21 @@
      <normaloff>../../../../.designer/backup</normaloff>../../../../.designer/backup</iconset>
    </property>
    <property name="text">
-    <string>Annotate instances</string>
+    <string>Draw instances</string>
+   </property>
+   <property name="toolTip">
+    <string>Draw instances directly</string>
    </property>
   </action>
-  <action name="actionErase_labels">
+  <action name="actionEraser">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Erase labels</string>
+    <string>Eraser</string>
    </property>
    <property name="toolTip">
-    <string>Erase labels</string>
+    <string>Eraser for labels</string>
    </property>
   </action>
   <action name="actionUndo">
@@ -371,12 +375,12 @@
     <string>Ctrl+Shift+Z</string>
    </property>
   </action>
-  <action name="actionMulti_select">
+  <action name="actionSelect">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Multi-select</string>
+    <string>Select</string>
    </property>
    <property name="toolTip">
     <string>Select multiple</string>
@@ -391,6 +395,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+D</string>
+   </property>
+  </action>
+  <action name="actionSAM">
+   <property name="text">
+    <string>SAM</string>
+   </property>
+   <property name="toolTip">
+    <string>Segment Anything</string>
    </property>
   </action>
  </widget>

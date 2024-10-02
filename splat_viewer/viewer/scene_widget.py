@@ -1,9 +1,11 @@
 from dataclasses import replace
 import traceback
+from typing import List
 from beartype.typing import Tuple, Optional
 
 from PySide6 import QtGui, QtCore, QtWidgets
-from PySide6.QtCore import Qt, QEvent
+from PySide6.QtCore import Qt, QEvent, QObject, Signal
+
 from beartype import beartype
 import cv2
 
@@ -13,17 +15,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
+
 from splat_viewer.camera.fov import FOVCamera
-
-from splat_viewer.editor.editor import Editor
 from splat_viewer.editor.gaussian_scene import GaussianScene
-from splat_viewer.gaussians.workspace import Workspace
-from splat_viewer.gaussians import Gaussians
-from splat_viewer.renderer.taichi_splatting import GaussianRenderer
-
 
 from splat_viewer.viewer.interaction import Interaction
-from splat_viewer.viewer.interactions.instance_editor import InstanceEditor
 from splat_viewer.viewer.renderer import WorkspaceRenderer
 
     
@@ -33,12 +29,14 @@ from .settings import Settings, ViewMode
 
 
 
+
+
 class SceneWidget(QtWidgets.QWidget):
   settings_changed = QtCore.Signal(Settings)
   scene_changed = QtCore.Signal(GaussianScene, GaussianScene)
   
-  def __init__(self, renderer:GaussianRenderer, 
-               settings:Settings = Settings(),
+  def __init__(self, scene_renderer:WorkspaceRenderer, 
+               settings:Settings = Settings(),         
                parent:Optional[QtWidgets.QWidget]=None):
     
     super(SceneWidget, self).__init__(parent=parent)
@@ -47,18 +45,17 @@ class SceneWidget(QtWidgets.QWidget):
 
     self.camera = SceneCamera()
     self.settings = settings
-    self.renderer = renderer
+    self.scene_renderer = scene_renderer
+
+    self.scene = GaussianScene.empty(device=self.settings.device)
 
     self.cursor_pos = (0, 0)
     self.modifiers = Qt.NoModifier
     self.keys_down = set()
 
 
-    self.camera_state = Interaction()
+    self.camera_state = FlyControl()
     self.tool = Interaction()
-
-    self.editor = Editor(parent=self, 
-          scene=GaussianScene.empty(device=self.settings.device))
 
     self.setFocusPolicy(Qt.StrongFocus)
     self.setMouseTracking(True)
@@ -74,60 +71,16 @@ class SceneWidget(QtWidgets.QWidget):
     self.settings_changed.emit(self.settings)
 
   
-  def emit_scene_changed(self, previous:Optional[GaussianScene], scene:GaussianScene):
-    self.scene_changed.emit(previous, scene)
+  def set_scene(self, previous:Optional[GaussianScene], scene:GaussianScene):
+    self.scene = scene
 
+    self.scene_changed.emit(previous, scene)
     self.tool.trigger_scene_changed(previous, scene)
 
 
-  def load_workspace(self, workspace:Workspace, gaussians:Gaussians):
-    self.workspace = workspace
-
-    scene = GaussianScene.from_gaussians(gaussians.to(self.settings.device), class_labels=["apple"])
-    self.editor.set_scene(scene)
-
-    self.scene_renderer = WorkspaceRenderer(workspace, self.renderer, self.settings.device)
-    self.keypoints = self.read_keypoints()
-
+  def set_cameras(self, cameras:List[FOVCamera]):
+    self.cameras = cameras
     self.set_camera_index(0)
-
-    self.camera_state = FlyControl()
-    self.editor.scene_changed.connect(self.emit_scene_changed)
-    
-
-
-  def update_workspace(self, gaussians:Gaussians, index:Optional[int]=None):
-    self.load_workspace(self.workspace, gaussians)
-    if index is not None:
-      self.set_camera_index(index)
-    self.show()
-
-  def update_gaussians(self, gaussians:Gaussians):
-    class_labels = self.scene.class_labels
-    scene = GaussianScene.from_gaussians(gaussians.to(self.settings.device), 
-                                         class_labels=class_labels)
-    
-    self.editor.set_scene(scene)  
-
-  @property
-  def scene(self):
-    return self.editor.scene
-
-  @property
-  def camera_path_file(self):
-    return self.workspace.model_path / "camera_path.npy"
-
-  def write_keypoints(self):
-    np.save(self.camera_path_file, np.array(self.keypoints))
-    print(f"Saved {len(self.keypoints)} keypoints to {self.camera_path_file}")
-
-  def read_keypoints(self):
-    if self.camera_path_file.exists():
-      kp = list(np.load(self.camera_path_file))
-      print(f"Loaded {len(kp)} keypoints from {self.camera_path_file}")
-      return kp
-
-    return []
 
 
 

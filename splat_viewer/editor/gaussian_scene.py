@@ -51,7 +51,7 @@ class GaussianScene:
   class_labels: list[str]
 
   instances: Map[int, Instance] = Map()
-  selected_instances: Set[int] = field(default_factory=set)
+  selected_instance_ids: Set[int] = field(default_factory=set)
 
 
   def with_unselected(self) -> 'GaussianScene':
@@ -65,6 +65,16 @@ class GaussianScene:
   @property
   def device(self) -> torch.device:
     return self.gaussians.device
+  
+  @property
+  def selected_instances(self) -> List[Instance]:
+    return [self.instances[i] for i in self.selected_instance_ids]
+  
+  @property
+  def selected_instance(self) -> Optional[Instance]:
+    if len(self.selected_instance_ids) != 1:
+      return None
+    return self.instances[next(iter(self.selected_instances))]
 
   @staticmethod
   def empty(device:str | torch.device = torch.device('cpu')):

@@ -13,7 +13,7 @@ import signal
 import taichi as ti
 import torch
 
-from splat_viewer.viewer.interactions.instance_editor import InstanceEditor
+from splat_viewer.editor.interactions.draw_instances import InstanceEditor
 from splat_viewer.viewer.scene_widget import SceneWidget
 from splat_viewer.viewer.settings import Settings
 
@@ -32,6 +32,10 @@ def process_cl_args():
 def sigint_handler(*args):
     QApplication.quit()
 
+
+
+
+    
 
 
 def main():

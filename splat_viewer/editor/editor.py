@@ -16,7 +16,7 @@ class Edit( metaclass=ABCMeta):
 
 
 
-class Editor(QObject):
+class EditorState(QObject):
   scene_changed = Signal(GaussianScene, GaussianScene)
 
   def __init__(self, scene:GaussianScene, parent:QObject = None):
