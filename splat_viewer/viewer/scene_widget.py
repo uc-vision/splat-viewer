@@ -356,7 +356,7 @@ class SceneWidget(QtWidgets.QWidget):
     
     for x in range(0, nw):
       for y in range(0, nh):
-        tile_camera = camera.crop(np.array([x * tile_size, y * tile_size]), 
+        tile_camera = camera.crop_offset_size(np.array([x * tile_size, y * tile_size]), 
                              np.array([tile_size, tile_size]))
         
         image = self.workspace_renderer.render(tile_camera, self.settings)
