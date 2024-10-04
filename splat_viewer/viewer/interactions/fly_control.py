@@ -111,8 +111,8 @@ class FlyControl(Interaction):
       speed = self.settings.drag_speed
       ref_pos = self.ref_pose[3, :3]
       
-      r = rotation_around(ref_pos - self.anchor_3d, 'yxz', [dx / sz.width() * speed, -dy / sz.height() * speed, 0])
+      r = rotation_around(self.anchor_3d - ref_pos, 'yxz', [dx / sz.width() * speed, -dy / sz.height() * speed, 0])
       
-      self.scene_widget.set_view_matrix(self.ref_pose @ r) 
+      self.scene_widget.set_view_matrix(np.linalg.inv(r) @ self.ref_pose) 
       return True
     
