@@ -35,7 +35,7 @@ class Settings:
   zoom_discrete : float = 1.2
   zoom_continuous : float = 0.1
 
-  drag_speed : float = 1.0
+  drag_speed : float = 2.0
   point_size : float = 2.0
 
   snapshot_size: Tuple[int, int] = (8192, 6144) 

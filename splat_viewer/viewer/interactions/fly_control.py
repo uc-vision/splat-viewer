@@ -1,8 +1,10 @@
 
 from PySide6 import QtGui
-from PySide6.QtCore import Qt, QEvent
-
+from PySide6.QtCore import Qt, QEvent, QPoint
+from PySide6.QtGui import QCursor
 import numpy as np
+
+from splat_viewer.viewer.scene_camera import rotation_around
 
 from ..interaction import Interaction
 
@@ -43,6 +45,12 @@ class FlyControl(Interaction):
 
     self.held_keys = set(self.directions.keys()) | set(self.rotations.keys())
 
+    self.drag_2d = np.array([0, 0], dtype=np.float32)
+    self.anchor_2d = None
+
+    self.anchor_3d = None
+    self.ref_pose = None
+
 
   def keyPressEvent(self, event: QtGui.QKeyEvent):
     if event.key() in self.held_keys and not event.isAutoRepeat():
@@ -67,25 +75,44 @@ class FlyControl(Interaction):
 
   def mousePressEvent(self, event: QtGui.QMouseEvent):
     if event.buttons() & Qt.RightButton:
-      self.drag_mouse_pos = event.localPos()
-      return True
+      p = event.localPos()
+      self.anchor_3d = self.lookup_point_3d(np.array([p.x(), p.y()]))
+
+      if self.anchor_3d is not None:
+        self.drag_2d = np.array([0, 0], dtype=np.float32)
+        self.anchor_2d = p    
+        self.ref_pose = self.scene_widget.view_matrix
+        self.scene_widget.setCursor(Qt.BlankCursor)
+        return True
     
 
   def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
     if event.button() & Qt.RightButton:
-      self.drag_mouse_pos = None
+
+      self.anchor_3d = None
+      self.ref_pose = None
+      self.scene_widget.setCursor(Qt.ArrowCursor)
+
       return True
     
   def mouseMoveEvent(self, event: QtGui.QMouseEvent):
-    if event.buttons() & Qt.RightButton and self.drag_mouse_pos is not None:
-      delta = event.localPos() - self.drag_mouse_pos
+    if event.buttons() & Qt.RightButton and self.anchor_3d is not None:
+      p = event.localPos()
+      delta = p - self.anchor_2d
+
+      self.drag_2d += np.array([delta.x(), delta.y()], dtype=np.float32)
+      dx, dy = self.drag_2d
+
+      # Get screen position of the anchor point
+      screen_pos = self.scene_widget.mapToGlobal(self.anchor_2d.toPoint())
+      QCursor.setPos(screen_pos)
 
       sz = self.scene_widget.size()
-
       speed = self.settings.drag_speed
-      self.scene_widget.rotate_camera([delta.x() / sz.width() * speed, 
-                                -delta.y() / sz.height() * speed,
-                                0])
+      ref_pos = self.ref_pose[3, :3]
       
-      self.drag_mouse_pos = event.localPos()
+      r = rotation_around(ref_pos - self.anchor_3d, 'yxz', [dx / sz.width() * speed, -dy / sz.height() * speed, 0])
+      
+      self.scene_widget.set_view_matrix(self.ref_pose @ r) 
+      return True
     

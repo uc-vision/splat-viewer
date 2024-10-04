@@ -393,10 +393,17 @@ class SceneWidget(QtWidgets.QWidget):
     self.camera.rotate(delta)
     self.dirty = True
 
+  @property
+  def view_matrix(self) -> np.ndarray:
+    return self.camera.view_matrix
+
   def set_camera_pose(self, r:np.ndarray, t:np.ndarray):
     self.camera.set_pose(r, t)
     self.dirty = True
 
+  def set_view_matrix(self, m:np.ndarray):
+    self.camera.set_view_matrix(m)
+    self.dirty = True
 
 
 
