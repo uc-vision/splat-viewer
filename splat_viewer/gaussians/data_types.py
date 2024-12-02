@@ -19,8 +19,7 @@ class Rendering:
   image : torch.Tensor
   camera : FOVCamera
 
-  depth : Optional[torch.Tensor] = None
-  depth_var: Optional[torch.Tensor] = None
+  depth : torch.Tensor
 
   @property
   def image_size(self):

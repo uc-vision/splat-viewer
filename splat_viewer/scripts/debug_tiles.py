@@ -7,7 +7,7 @@ from tqdm import tqdm
 from splat_viewer.gaussians.data_types import Gaussians
 from splat_viewer.gaussians.workspace import load_workspace
 
-from taichi_splatting import RasterConfig, map_to_tiles, pad_to_tile, perspective, tile_mapper
+from taichi_splatting import RasterConfig, map_to_tiles, pad_to_tile, perspective, tile_mapper, TaichiQueue
 
 import taichi as ti
 from splat_viewer.renderer.taichi_splatting import to_camera_params
@@ -44,7 +44,7 @@ def main():
 
   args = parser.parse_args()
 
-  ti.init(arch=ti.cuda, offline_cache=True, log_level=ti.INFO,
+  TaichiQueue.init(arch=ti.cuda, offline_cache=True, log_level=ti.INFO,
           debug=args.debug, device_memory_GB=0.1)
 
 

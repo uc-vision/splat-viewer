@@ -176,21 +176,19 @@ class WorkspaceRenderer:
           camera, mask, alpha_multiplier, threshold)
 
 
-  def colormap_torch(self, depth, near=0.1):
+  def colormap_torch(self, depth, near_point=0.2):
     depth = depth.clone()
     depth[depth <= 0] = torch.inf
 
-    min_depth = torch.clamp(depth, min=near).min()
 
-    inv_depth =  (min_depth / depth).clamp(0, 1)
+    inv_depth =  (near_point / depth).clamp(0, 1)
     inv_depth = (255 * inv_depth).to(torch.int)
 
     return (self.color_map[inv_depth])
 
-  def colormap_np(self, depth, near=0.1):
-    min_depth = np.clip(depth, a_min=near).min()
+  def colormap_np(self, depth, near_point=0.2):
 
-    inv_depth =  (min_depth / depth)
+    inv_depth =  (near_point / depth)
     inv_depth = (255 * inv_depth).astype(np.uint8)
     return cv2.applyColorMap(inv_depth, cv2.COLORMAP_TURBO)
 
@@ -200,18 +198,11 @@ class WorkspaceRenderer:
     with torch.inference_mode():      
       self.rendering = self.render_gaussians(camera, settings)   
     
-    min_depth = self.workspace.camera_extent / 10.
-
+    near_point = self.workspace.camera_extent / 3.
     depth = self.rendering.depth
-    eps = 1e-6
 
     if settings.view_mode == ViewMode.Depth:
-      image_gaussian = self.colormap_torch(depth, near = min_depth).to(torch.uint8).cpu().numpy()
-    elif settings.view_mode == ViewMode.DepthVar:
-      norm_var = self.rendering.depth_var / (depth + eps)
-
-
-      image_gaussian = self.colormap_torch(norm_var, near = 1e-5).to(torch.uint8).cpu().numpy()  
+      image_gaussian = self.colormap_torch(depth, near_point = near_point).to(torch.uint8).cpu().numpy()
     else:
       image_gaussian = (self.rendering.image.clamp(0, 1) * 255).to(torch.uint8).cpu().numpy()
 

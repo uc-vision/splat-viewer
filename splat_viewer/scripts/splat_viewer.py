@@ -8,6 +8,7 @@ from splat_viewer.gaussians.workspace import load_workspace
 from splat_viewer.renderer.arguments import  add_render_arguments, make_renderer_args, renderer_from_args
 
 from splat_viewer.viewer.scene_widget import SceneWidget, Settings
+from taichi_splatting import TaichiQueue
 
 import signal
 import taichi as ti
@@ -44,7 +45,7 @@ def main():
     gaussians = workspace.load_model(parsed_args.model)
     print(f"Loaded model {parsed_args.model}: {gaussians}")
 
-    ti.init(ti.gpu, offline_cache=True, debug=parsed_args.debug, device_memory_GB=0.1)
+    TaichiQueue.init(ti.gpu, offline_cache=True, debug=parsed_args.debug, device_memory_GB=0.1)
 
 
     qt_args = sys.argv[:1] + unparsed_args

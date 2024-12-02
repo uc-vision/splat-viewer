@@ -47,7 +47,7 @@ class GaussianRenderer:
     self.config = replace(self.config, **kwargs)
 
   @beartype
-  def render(self, inputs:Gaussians3D, camera:FOVCamera, render_depth:bool = True):
+  def render(self, inputs:Gaussians3D, camera:FOVCamera):
     device = inputs.position.device
     
     config = renderer.RasterConfig(
@@ -62,11 +62,10 @@ class GaussianRenderer:
       config=config, 
       use_sh=True, 
       use_depth16=self.config.use_depth16,
-      render_depth=render_depth)
+      render_median_depth=True)
     
     
     return Rendering(image=rendering.image, 
-                            depth=rendering.depth, 
-                            depth_var=rendering.depth_var, 
-                             camera=camera)
+                            depth=rendering.median_depth, 
+                            camera=camera)
     

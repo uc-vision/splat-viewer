@@ -11,6 +11,8 @@ from splat_viewer.gaussians.workspace import Workspace
 from splat_viewer.renderer.taichi_splatting import GaussianRenderer
 from splat_viewer.viewer.scene_widget import SceneWidget, Settings
 
+from taichi_splatting import TaichiQueue
+
 
 def init_viewer(workspace:Workspace, 
                    gaussians:Gaussians = None, 
@@ -37,7 +39,7 @@ def show_workspace(workspace:Workspace,
                    settings:Settings=Settings()):
   
   import taichi as ti
-  ti.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
+  TaichiQueue.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
 
 
   from splat_viewer.viewer.viewer import sigint_handler
@@ -59,7 +61,7 @@ def run_process(workspace:Workspace,
                    settings:Settings=Settings()):
   
   import taichi as ti
-  ti.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
+  TaichiQueue.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
 
   from splat_viewer.viewer.viewer import sigint_handler
   signal.signal(signal.SIGINT, sigint_handler)
