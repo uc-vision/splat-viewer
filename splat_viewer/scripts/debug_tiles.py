@@ -63,7 +63,7 @@ def main():
     
   config = RasterConfig(
     tile_size=args.tile_size, 
-    antialias=not args.antialias)
+    antialias=args.antialias)
 
   packed = gaussians.packed()
 

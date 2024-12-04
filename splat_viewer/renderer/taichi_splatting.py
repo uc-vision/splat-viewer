@@ -34,6 +34,7 @@ class GaussianRenderer:
     antialias : bool = True
     use_depth16 : bool = False
     pixel_stride : Tuple[int, int] = (2, 2)
+    blur_cov: float = 0.3
 
   def __init__(self, **kwargs):
     self.config = GaussianRenderer.Config(**kwargs)
@@ -54,6 +55,7 @@ class GaussianRenderer:
       tile_size=self.config.tile_size,
       antialias=self.config.antialias,
       pixel_stride=self.config.pixel_stride,
+      blur_cov=self.config.blur_cov
     )
       
     rendering = renderer.render_gaussians(
