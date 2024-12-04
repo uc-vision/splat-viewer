@@ -39,7 +39,7 @@ def main():
 
   parser.add_argument("--tile_size", type=int, default=16, help="tile size for rasterizer")
   parser.add_argument("--image_size", type=int, default=None, help="resize longest edge of camera image sizes")
-  parser.add_argument("--no_antialias", action="store_true", help="disable analytic antialiasing")
+  parser.add_argument("--antialias", action="store_true", help="enable analytic antialiasing")
   parser.add_argument("--debug", action="store_true", help="enable taichi debug mode")
 
   args = parser.parse_args()
@@ -63,7 +63,7 @@ def main():
     
   config = RasterConfig(
     tile_size=args.tile_size, 
-    antialias=not args.no_antialias)
+    antialias=not args.antialias)
 
   packed = gaussians.packed()
 
