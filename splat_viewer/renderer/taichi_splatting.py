@@ -17,14 +17,13 @@ def to_camera_params(camera:FOVCamera, device=torch.device("cuda:0")):
     T_camera_world=torch.from_numpy(camera.camera_t_world),
     projection=torch.tensor([*camera.focal_length, *camera.principal_point]),
     
-    image_size=tuple(camera.image_size),
+    image_size=tuple(int(x) for x in camera.image_size),
     near_plane=camera.near,
     far_plane=camera.far
   )
 
   return params.to(device=device, dtype=torch.float32)
     
-
 
 
 class GaussianRenderer:
