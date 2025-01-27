@@ -25,8 +25,6 @@ dependencies = [
 
 ]
 
-[options]
-dependency_links = ["https://pypi.taichi.graphics/simple/"]
 
 [project.urls] 
 "Homepage" = "https://github.com/uc-vision/splat-viewer"
@@ -54,3 +52,10 @@ filterwarnings = [
     "ignore::UserWarning"  
 ]
 
+
+[tool.pixi.project]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+
+[tool.pixi.tasks]

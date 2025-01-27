@@ -148,3 +148,7 @@ cython_debug/
 # IDE settings
 .vscode
 .idea
+
+# pixi environments
+.pixi
+*.egg-info
