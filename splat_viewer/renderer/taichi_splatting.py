@@ -67,6 +67,6 @@ class GaussianRenderer:
     
     
     return Rendering(image=rendering.image, 
-                            depth=rendering.median_depth, 
+                            depth=rendering.median_depth_image, 
                             camera=camera)
     
