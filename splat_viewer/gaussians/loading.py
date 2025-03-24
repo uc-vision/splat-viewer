@@ -139,8 +139,6 @@ def read_gaussians(filename:Path | str) -> Gaussians:
   return from_plydata(plydata)
 
 
-  
-
 def random_gaussians(n:int, sh_degree:int):
   points = torch.randn(n, 3)
 

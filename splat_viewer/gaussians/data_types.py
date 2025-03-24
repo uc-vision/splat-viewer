@@ -1,7 +1,7 @@
 from dataclasses import replace
 import math
 from beartype.typing import Optional
-from tensordict import tensorclass
+from tensordict import TensorClass
 import torch
 
 from .sh_utils import check_sh_degree, num_sh_features, rgb_to_sh, sh_to_rgb
@@ -9,7 +9,6 @@ from .sh_utils import check_sh_degree, num_sh_features, rgb_to_sh, sh_to_rgb
 from dataclasses import dataclass
 from splat_viewer.camera.fov import FOVCamera
 
-from taichi_splatting import Gaussians3D
 import roma
 
 
@@ -26,8 +25,7 @@ class Rendering:
     y, x = self.image.shape[1:]
     return x, y
 
-@tensorclass
-class Gaussians():
+class Gaussians(TensorClass):
   position     :  torch.Tensor # 3  - xyz
   log_scaling   : torch.Tensor # 3  - scale = exp(log_scalining) 
   rotation      : torch.Tensor # 4  - quaternion wxyz
@@ -66,26 +64,26 @@ class Gaussians():
   def device(self):
     return self.position.device 
   
-  def to_gaussians3d(self):
-    return Gaussians3D(
-      position=self.position,
-      log_scaling=self.log_scaling,
-      rotation=self.rotation,
-      alpha_logit=self.alpha_logit,
-      feature=self.sh_feature,
-      batch_size=self.batch_size
-    )
+  # def to_gaussians3d(self):
+  #   return Gaussians3D(
+  #     position=self.position,
+  #     log_scaling=self.log_scaling,
+  #     rotation=self.rotation,
+  #     alpha_logit=self.alpha_logit,
+  #     feature=self.sh_feature,
+  #     batch_size=self.batch_size
+  #   )
 
-  @staticmethod
-  def from_gaussians3d(g:Gaussians3D):
-    return Gaussians(
-      position=g.position,
-      log_scaling=g.log_scaling,
-      rotation=g.rotation,
-      alpha_logit=g.alpha_logit,
-      sh_feature=g.feature,
-      batch_size=g.batch_size
-    )
+  # @staticmethod
+  # def from_gaussians3d(g:Gaussians3D):
+  #   return Gaussians(
+  #     position=g.position,
+  #     log_scaling=g.log_scaling,
+  #     rotation=g.rotation,
+  #     alpha_logit=g.alpha_logit,
+  #     sh_feature=g.feature,
+  #     batch_size=g.batch_size
+  #   )
 
   def crop_foreground(self):
     if self.foreground is None:

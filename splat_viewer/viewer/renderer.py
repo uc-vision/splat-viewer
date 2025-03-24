@@ -6,7 +6,6 @@ import pyrender
 import torch
 from splat_viewer.camera.fov import FOVCamera
 #from splat_viewer.renderer.diff_gaussian_rasterization import DiffGaussianRenderer
-from splat_viewer.renderer.taichi_splatting import GaussianRenderer
 
 from splat_viewer.gaussians.workspace import Workspace
 from splat_viewer.gaussians import Gaussians, Rendering
@@ -179,7 +178,6 @@ class WorkspaceRenderer:
   def colormap_torch(self, depth, near_point=0.2):
     depth = depth.clone()
     depth[depth <= 0] = torch.inf
-
 
     inv_depth =  (near_point / depth).clamp(0, 1)
     inv_depth = (255 * inv_depth).to(torch.int)

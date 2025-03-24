@@ -8,11 +8,9 @@ from torch.multiprocessing import Process, Queue, get_start_method
 
 from splat_viewer.gaussians import Gaussians
 from splat_viewer.gaussians.workspace import Workspace
-from splat_viewer.renderer.taichi_splatting import GaussianRenderer
 from splat_viewer.viewer.scene_widget import SceneWidget, Settings
 
-from taichi_splatting import TaichiQueue
-
+from splat_viewer.renderer.ray_splatting import GaussianRenderer
 
 def init_viewer(workspace:Workspace, 
                    gaussians:Gaussians = None, 
@@ -38,8 +36,8 @@ def show_workspace(workspace:Workspace,
                    gaussians:Gaussians = None, 
                    settings:Settings=Settings()):
   
-  import taichi as ti
-  TaichiQueue.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
+  # import taichi as ti
+  # TaichiQueue.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
 
 
   from splat_viewer.viewer.viewer import sigint_handler
@@ -60,8 +58,8 @@ def run_process(workspace:Workspace,
                    gaussians:Gaussians = None, 
                    settings:Settings=Settings()):
   
-  import taichi as ti
-  TaichiQueue.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
+  # import taichi as ti
+  # TaichiQueue.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
 
   from splat_viewer.viewer.viewer import sigint_handler
   signal.signal(signal.SIGINT, sigint_handler)
