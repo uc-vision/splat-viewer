@@ -93,10 +93,15 @@ def from_plydata(plydata:plyfile.PlyData) -> Gaussians:
 
 
   sh_dc = get_keys([f'f_dc_{k}' for k in range(3)]).view(positions.shape[0], 3, 1)
-  sh_rest = get_keys([f'f_rest_{k}' for k in range(3 * (deg * deg - 1))])
-  sh_rest = sh_rest.view(positions.shape[0], 3, n_sh - 1)
 
-  sh_features = torch.cat([sh_dc, sh_rest], dim=2)  
+
+  if deg > 1:
+    sh_rest = get_keys([f'f_rest_{k}' for k in range(3 * (deg * deg - 1))])
+    sh_rest = sh_rest.view(positions.shape[0], 3, n_sh - 1)
+
+    sh_features = torch.cat([sh_dc, sh_rest], dim=2)  
+  else:
+    sh_features = sh_dc
 
   rotation = get_keys([f'rot_{k}' for k in range(4)])
   # convert from wxyz to xyzw quaternion and normalize

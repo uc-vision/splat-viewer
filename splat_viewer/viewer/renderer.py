@@ -5,8 +5,6 @@ import numpy as np
 import pyrender
 import torch
 from splat_viewer.camera.fov import FOVCamera
-#from splat_viewer.renderer.diff_gaussian_rasterization import DiffGaussianRenderer
-from splat_viewer.renderer.taichi_splatting import GaussianRenderer
 
 from splat_viewer.gaussians.workspace import Workspace
 from splat_viewer.gaussians import Gaussians, Rendering
@@ -127,7 +125,6 @@ class RenderState:
       valid_instances = gaussians.instance_label[instance_mask].squeeze().long()
 
       unique_instance_labels = torch.unique(valid_instances)
-
       color_space = (torch.randn(unique_instance_labels.shape[0], 3, device=instance_mask.device) * 2).sigmoid()
 
       gaussians = gaussians.with_colors(color_space[valid_instances], instance_mask)
