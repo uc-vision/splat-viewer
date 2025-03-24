@@ -26,7 +26,7 @@ class GaussianRenderer:
   def __init__(self):
     config = ray_splatting.RenderConfig(
       max_hits = 16,
-      kernel_function = ray_splatting.KernelFunction.HalfCosine,
+      kernel_function = ray_splatting.KernelFunction.Gaussian,
       alpha_threshold=1/255,
       num_features=3
     )
@@ -47,10 +47,19 @@ class GaussianRenderer:
   @beartype
   def pack_inputs(self, gaussians:Gaussians, requires_grad=False):
       
+      # ray_splatting uses a unit size ellipsoid, whereas the gaussians are clipped at ~3
+      log_scaling = gaussians.log_scaling
+
+      if self.renderer.config.kernel_function != ray_splatting.KernelFunction.Gaussian:
+        thresh = self.renderer.config.alpha_threshold
+        scale = torch.sqrt(2 * torch.log(gaussians.alpha() / thresh))
+        log_scaling = gaussians.log_scaling + scale.log()
+
+
       return ray_splatting.Point3D(
           position=gaussians.position,
           feature=gaussians.get_colors(),
-          log_scaling=gaussians.log_scaling,
+          log_scaling=log_scaling,
           rotation=gaussians.rotation,
           alpha_logit=gaussians.alpha_logit,
           batch_size=gaussians.batch_size

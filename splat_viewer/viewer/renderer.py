@@ -53,8 +53,6 @@ class PyrenderScene:
     
     self.update_gaussians(gaussians)
 
-
-  
   def update_gaussians(self, gaussians:Gaussians):
     if self.bbox_node is not None:
       self.initial_scene.remove_node(self.bbox_node)
@@ -126,7 +124,6 @@ class RenderState:
       valid_instances = gaussians.instance_label[instance_mask].squeeze().long()
 
       unique_instance_labels = torch.unique(valid_instances)
-
       color_space = (torch.randn(unique_instance_labels.shape[0], 3, device=instance_mask.device) * 2).sigmoid()
 
       gaussians = gaussians.with_colors(color_space[valid_instances], instance_mask)
