@@ -188,8 +188,17 @@ class SceneWidget(QtWidgets.QWidget):
     elif event.key() == Qt.Key_Minus:
       self.camera.zoom(1/self.settings.zoom_discrete)
       self.dirty = True
-
       return True
+
+
+    elif event.key() == Qt.Key_O: 
+      shift = event.modifiers() & Qt.ShiftModifier
+      self.update_setting(depth_scale = self.settings.depth_scale * (0.9 if shift else 1/0.9))
+      self.dirty = True
+      return True
+    
+
+
 
     elif event.key() in enable_disable:
       k = enable_disable[event.key()]
