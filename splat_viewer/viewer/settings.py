@@ -42,6 +42,9 @@ class Settings:
   snapshot_tile: int = 1024
 
 
+  depth_scale: float = 1.0
+
+
   device : str = 'cuda:0'
   bg_color : Tuple[float, float, float] = (1, 1, 1)
 

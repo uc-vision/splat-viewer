@@ -195,7 +195,7 @@ class WorkspaceRenderer:
     with torch.inference_mode():      
       self.rendering = self.render_gaussians(camera, settings)   
     
-    near_point = self.workspace.camera_extent / 3.
+    near_point = (self.workspace.camera_extent / 3.) * settings.depth_scale
     depth = self.rendering.depth
 
     if settings.view_mode == ViewMode.Depth:
