@@ -41,7 +41,7 @@ def visibility(cameras:List[FOVCamera], points:torch.Tensor, near=0.1, far=torch
   projections = np.array([camera.projection for camera in cameras])
   torch_projections = torch.from_numpy(projections).to(dtype=torch.float32, device=points.device)
 
-  for camera, proj in tqdm(zip(cameras, torch_projections)):
+  for camera, proj in tqdm(zip(cameras, torch_projections), total=len(cameras), desc="Evaluating visibility"):
   
     proj, depth = project_points(proj, points)
     width, height = camera.image_size
@@ -51,7 +51,7 @@ def visibility(cameras:List[FOVCamera], points:torch.Tensor, near=0.1, far=torch
              & (depth[:, 0] > near)
              )
 
-    q = torch.quantile(depth[is_valid], 0.25)
+    q = torch.quantile(depth[is_valid], 0.15)
     is_near = depth[:, 0] <= (far if np.isfinite(far) else 2 * q)
 
     near_counts[is_valid & is_near] += 1
