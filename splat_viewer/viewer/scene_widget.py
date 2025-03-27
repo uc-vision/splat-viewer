@@ -11,6 +11,7 @@ import math
 from pathlib import Path
 
 import numpy as np
+from splat_viewer.camera.visibility import visibility
 import torch
 from splat_viewer.camera.fov import FOVCamera
 
@@ -68,8 +69,14 @@ class SceneWidget(QtWidgets.QWidget):
 
   def load_workspace(self, workspace:Workspace, gaussians:Gaussians):
     self.workspace = workspace
+
+    gaussians = gaussians.to(self.settings.device)
+    if gaussians.foreground is None:
+      foreground, _ = visibility(workspace.cameras, gaussians.position)
+      gaussians = gaussians.replace(foreground=foreground.unsqueeze(1) > 0)
+
     
-    self.workspace_renderer = WorkspaceRenderer(workspace, gaussians.to(self.settings.device), self.renderer)
+    self.workspace_renderer = WorkspaceRenderer(workspace, gaussians, self.renderer)
     self.keypoints = self.read_keypoints()
 
     self.set_camera_index(0)
