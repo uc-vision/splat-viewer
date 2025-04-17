@@ -46,7 +46,7 @@ class FOVCamera:
   image_name: str
   principal_point : np.ndarray = field(default_factory=lambda: np.array([0., 0.]))
 
-  near:float  = 0.1
+  near:float  = 0.01
   far :float  = 1000.0
 
   @staticmethod

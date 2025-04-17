@@ -35,11 +35,12 @@ def project_points(transform, xyz):
 
 @beartype
 def visibility(cameras:List[FOVCamera], points:torch.Tensor, near=0.1, far=torch.inf):
-  near_counts = torch.zeros(len(points), dtype=torch.int32, device=points.device)
   vis_counts = torch.zeros(len(points), dtype=torch.int32, device=points.device)
 
   projections = np.array([camera.projection for camera in cameras])
   torch_projections = torch.from_numpy(projections).to(dtype=torch.float32, device=points.device)
+
+  min_distance = torch.full((len(points), ), fill_value=far, dtype=torch.float32, device=points.device)
 
   for camera, proj in tqdm(zip(cameras, torch_projections), total=len(cameras), desc="Evaluating visibility"):
   
@@ -51,12 +52,10 @@ def visibility(cameras:List[FOVCamera], points:torch.Tensor, near=0.1, far=torch
              & (depth[:, 0] > near)
              )
 
-    q = torch.quantile(depth[is_valid], 0.15)
-    is_near = depth[:, 0] <= (far if np.isfinite(far) else 2 * q)
-
-    near_counts[is_valid & is_near] += 1
+    min_distance[is_valid] = torch.minimum(depth[is_valid, 0], min_distance[is_valid])
     vis_counts[is_valid] += 1
 
-  return near_counts, vis_counts
+
+  return vis_counts, min_distance
 
 

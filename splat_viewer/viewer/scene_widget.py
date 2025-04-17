@@ -72,8 +72,11 @@ class SceneWidget(QtWidgets.QWidget):
 
     gaussians = gaussians.to(self.settings.device)
     if gaussians.foreground is None:
-      foreground, _ = visibility(workspace.cameras, gaussians.position)
-      gaussians = gaussians.replace(foreground=foreground.unsqueeze(1) > 0)
+      foreground, depths = visibility(workspace.cameras, gaussians.position)
+
+      q = torch.quantile(depths, 0.85)
+      mask = (foreground > 0.05 * len(workspace.cameras)) & (depths < q)
+      gaussians = gaussians.replace(foreground=mask.unsqueeze(1))
 
     
     self.workspace_renderer = WorkspaceRenderer(workspace, gaussians, self.renderer)
