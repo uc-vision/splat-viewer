@@ -49,7 +49,7 @@ def visibility(cameras:List[FOVCamera], points:torch.Tensor, near=0.1, far=torch
 
     is_valid = ((proj[:, 0] >= 0) & (proj[:, 0] < width) & 
              (proj[:, 1] >= 0) & (proj[:, 1] < height)
-             & (depth[:, 0] > near)
+             & (depth[:, 0] > near) & (depth[:, 0] < far)
              )
 
     min_distance[is_valid] = torch.minimum(depth[is_valid, 0], min_distance[is_valid])

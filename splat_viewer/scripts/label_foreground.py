@@ -12,16 +12,18 @@ from splat_viewer.gaussians.workspace import load_workspace
 
 
 def crop_model(model, cameras:List[FOVCamera], args):
-  is_near, is_visible = visibility(cameras, model.position, near = args.near, far = args.far)
+  num_visible, min_distance = visibility(cameras, model.position, near = args.near)
 
   min_views = max(1, len(cameras) * args.min_percent / 100)
-  n = (is_visible > 0).sum(dtype=torch.int32)
-  n_near = (is_near >= min_views).sum(dtype=torch.int32)
+  is_visible = (num_visible > min_views)
 
-  print(f"Cropped model from {model.batch_size[0]} to {n} visible points, {n_near} near (at least {min_views} views)")
-  model = model.replace(foreground=(is_near >= min_views).reshape(-1, 1))
+  is_near = (min_distance < args.far)
+  n_near = is_near.sum(dtype=torch.int32)
 
-  model = model[is_visible > 0]
+  print(f"Cropped model from {model.batch_size[0]} to {is_visible.sum().item()} visible points, {n_near} near (at least {min_views} views)")
+  model = model.replace(foreground=is_near.reshape(-1, 1))
+
+  model = model[is_visible]
   return model
 
 def main():
@@ -31,7 +33,7 @@ def main():
   parser.add_argument("--scan", type=str,  help="Input scan file")
   
   parser.add_argument("--far", default=torch.inf, type=float, help="Max depth to determine the visible ROI")
-  parser.add_argument("--near", default=0.2, type=float, help="Min depth to determine the visible ROI")
+  parser.add_argument("--near", default=0.01, type=float, help="Min depth to determine the visible ROI")
 
 
   parser.add_argument("--min_percent", type=float, default=0, help="Minimum percent of views to be included")
