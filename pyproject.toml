@@ -12,8 +12,7 @@ maintainers = [
 
 dependencies = [
   "beartype", 
-  # "taichi-nightly>=1.8.0", 
-  # "taichi-splatting >= 0.21.2",
+  "taichi-splatting >= 0.21.2",
   "tqdm", 
   "tensordict",
   "plyfile",

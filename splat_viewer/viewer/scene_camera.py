@@ -81,7 +81,7 @@ class SceneCamera:
   
   @property
   def view_matrix(self):
-    return self._camera.world_t_camera
+    return self._camera.world_T_camera
 
   @property 
   def rotation(self):
