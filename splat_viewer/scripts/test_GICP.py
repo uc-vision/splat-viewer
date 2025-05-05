@@ -16,11 +16,14 @@ from taichi_splatting.taichi_queue import TaichiQueue
 import matplotlib.pyplot as plt
 import open3d as o3d
 import cv2
+from scipy.spatial.transform import Rotation as R
 
 import numpy as np
 
 import os
 import glob
+
+from splat_viewer.scripts.pcd_noise import PointCloudNoise
 
 def clear_test_images(folder_path="splat-viewer/splat_viewer/test_images/"):
     """
@@ -92,7 +95,7 @@ def compare_pointcloud_scales(source, target):
     o3d.visualization.draw_geometries([source, target], 
                                      window_name="Scale Comparison (Red=Source, Green=Target)")
     
-def show_alignment_from_view(source, target, c2w=None, point_size=1.0, show_image=True):
+def show_alignment_from_view(source, target, w2c=None, point_size=1.0, show_image=True):
     """
     Visualize alignment of source (red) and target (green) point clouds,
     optionally from a specified camera pose, with adjustable point size.
@@ -100,7 +103,7 @@ def show_alignment_from_view(source, target, c2w=None, point_size=1.0, show_imag
     Args:
         source (o3d.geometry.PointCloud): Source point cloud (will be shown in red)
         target (o3d.geometry.PointCloud): Target point cloud (will be shown in green)
-        c2w (np.ndarray): Optional 4x4 camera-to-world transformation matrix
+        w2c (np.ndarray): Optional 4x4 world-to-camera transformation matrix
         point_size (float): Point size for visualization (default: 1.0, finest)
     """
     # Colorize point clouds
@@ -119,11 +122,11 @@ def show_alignment_from_view(source, target, c2w=None, point_size=1.0, show_imag
     render_opt = vis.get_render_option()
     render_opt.point_size = point_size
 
-    # Set camera view if c2w is provided
-    if c2w is not None:
+    # Set camera view if w2c is provided
+    if w2c is not None:
         view_ctl = vis.get_view_control()
         params = view_ctl.convert_to_pinhole_camera_parameters()
-        params.extrinsic = c2w
+        params.extrinsic = w2c
         view_ctl.convert_from_pinhole_camera_parameters(params)
 
     # Capture image
@@ -171,6 +174,8 @@ def parse_arguments():
   parser.add_argument("--near", default=0.01, type=float, help="Min depth to determine the visible ROI")
   parser.add_argument("--min_percent", type=float, default=0, help="Minimum percent of views to be included")
   parser.add_argument("--device", default='cuda:0')
+  parser.add_argument("--show_result", action="store_true", help='Display resulting ICP alignment')
+  parser.add_argument("--num_samples", default=5, type=int, help='Number of samples (different camera FOV) to test within scan')
 
   args = parser.parse_args()
 
@@ -199,11 +204,11 @@ def define_intrinsics(image_colour, camera):
   )
 
 def scale_pcd(pcd, scale_factor):
-  center = pcd.get_center()
-  pcd.scale(scale_factor, center)
-  return pcd
+  center = pcd.get_center().reshape(3, 1)
+  return pcd.scale(scale_factor, [0,0,0])
+  
 
-def apply_GICP(source, target, initial_guess):
+def apply_GICP(source, target, initial_guess=np.eye(4)):
 
   # Step 1: Auto-tune parameters
   bbox = target.get_axis_aligned_bounding_box().get_extent()
@@ -232,8 +237,8 @@ def apply_GICP(source, target, initial_guess):
   )
 
   # Results
-  print("Generalized ICP Transformation Matrix:\n", reg_gicp.transformation)
-  print("Fitness Score (inlier ratio):", reg_gicp.fitness)  # Range [0, 1], higher is better
+  # print("Generalized ICP Transformation Matrix:\n", reg_gicp.transformation)
+  # print("Fitness Score (inlier ratio):", reg_gicp.fitness)  # Range [0, 1], higher is better
   print("RMSE:", reg_gicp.inlier_rmse)  # Root Mean Square Error of inliers
 
   return reg_gicp
@@ -274,34 +279,86 @@ def write_rmse_on_image(image, rmse):
 
   return image
 
-def add_noise_to_w2c(w2c, pos_noise_scale=0.1, rot_noise_deg=5.0):
+def generate_pose_noise(pos_noise_scale=0.15, rot_noise_deg=7.5):
     """
-    Adds random noise to a world-to-camera (w2c) matrix.
+    Generates random pose noise components.
     
     Args:
-        w2c (np.ndarray): 4x4 world-to-camera matrix
         pos_noise_scale (float): Max translation noise (meters)
         rot_noise_deg (float): Max rotation noise (degrees)
         
     Returns:
-        np.ndarray: Noisy 4x4 w2c matrix
+        tuple: (position_noise, rotation_matrix_noise)
+               position_noise: np.ndarray (3,) translation noise vector
+               rotation_matrix_noise: np.ndarray (3,3) rotation noise matrix
     """
-    # Create copy to avoid modifying original
-    noisy_w2c = w2c.copy()
-    
-    # Add translation noise
+    # Generate translation noise
     pos_noise = np.random.uniform(-pos_noise_scale, pos_noise_scale, 3)
-    noisy_w2c[:3, 3] += pos_noise
     
-    # Add rotation noise (small angle approximation)
+    # Generate rotation noise
     rot_noise_rad = np.radians(rot_noise_deg)
     angle_noise = np.random.uniform(-rot_noise_rad, rot_noise_rad, 3)
     R_noise = o3d.geometry.get_rotation_matrix_from_xyz(angle_noise)
-    noisy_w2c[:3, :3] = noisy_w2c[:3, :3] @ R_noise
     
+    return pos_noise, R_noise
+
+def apply_pose_noise(w2c, pos_noise, R_noise):
+    """
+    Applies noise components to a world-to-camera (w2c) matrix.
+    
+    Args:
+        w2c (np.ndarray): 4x4 world-to-camera matrix
+        pos_noise (np.ndarray): (3,) translation noise vector
+        R_noise (np.ndarray): (3,3) rotation noise matrix
+        
+    Returns:
+        np.ndarray: Noisy 4x4 w2c matrix
+    """
+    noisy_w2c = w2c.copy()
+    noisy_w2c[:3, 3] += pos_noise  # Apply translation noise
+    noisy_w2c[:3, :3] = noisy_w2c[:3, :3] @ R_noise  # Apply rotation noise
     return noisy_w2c
 
+def print_pose_noise(pos_noise, rot_matrix):
+    """
+    Prints pose noise in human-friendly units:
+    - Translation in centimeters
+    - Rotation as axis-angle in degrees
+    """
+    # Convert translation to cm (m to cm)
+    pos_cm = pos_noise * 100
+    
+    # Convert rotation matrix to axis-angle (degrees)
+    rot = R.from_matrix(rot_matrix)
+    axis_angle = rot.as_rotvec()
+    angle_deg = np.degrees(np.linalg.norm(axis_angle))
+    if angle_deg > 1e-6:  # Avoid division by zero
+        axis = axis_angle / np.linalg.norm(axis_angle)
+    else:
+        axis = np.zeros(3)
+    
+    # Format output
+    print("\n=== Pose Noise ===")
+    print(f"Translation (cm):")
+    print(f"  X: {pos_cm[0]:+.2f} cm")
+    print(f"  Y: {pos_cm[1]:+.2f} cm")
+    print(f"  Z: {pos_cm[2]:+.2f} cm")
+    
+    print("\nRotation:")
+    print(f"  Angle: {angle_deg:.2f}°")
+    print(f"  Axis: [{axis[0]:+.2f}, {axis[1]:+.2f}, {axis[2]:+.2f}]")
+
+def add_noise_to_w2c(w2c, pos_noise_scale=0.1, rot_noise_deg=5.0):
+    """Original function now using the two new functions"""
+    pos_noise, R_noise = generate_pose_noise(pos_noise_scale, rot_noise_deg)
+
+    print_pose_noise(pos_noise, R_noise)
+    return apply_pose_noise(w2c, pos_noise, R_noise)
+
 def main():
+  torch.cuda.empty_cache()
+
+  TaichiQueue.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
 
   clear_test_images()
 
@@ -312,38 +369,39 @@ def main():
   with torch.inference_mode():
     workspace = load_workspace(args.model_path)
     model = load_model(workspace)
-
     model = model.to(args.device)
 
     model = crop_model(model, workspace.cameras, args)
 
     model_pcd = create_model_pcd(model)
     
-    TaichiQueue.init(ti.gpu, offline_cache=True, device_memory_GB=0.1)
-
     renderer = GaussianRenderer()
+    noise_adder = PointCloudNoise()
 
-    for i in range(0, 30 ,2):
+    num_cameras = len(workspace.cameras)
+
+    # Calculate step size to for #num_samples steps
+    step_size = max(1, num_cameras // args.num_samples) if num_cameras > args.num_samples else 1
+
+    for i in range(0, num_cameras, step_size):
+
+      print(f"=== CAMERA {i} ===")
       
       camera = workspace.cameras[i]
 
-      w2c = create_w2c_matrix(camera)
+      w2c = camera.world_t_camera
+      c2w = camera.camera_t_world
 
-      # Convert to camera-to-world (Open3D's convention)
-      c2w = np.linalg.inv(w2c) 
+      w2c_noisy = add_noise_to_w2c(w2c, pos_noise_scale=0.10, rot_noise_deg=5.0)
 
-      noisy_w2c = add_noise_to_w2c(w2c)
-      
       # create a rendering
       rendering = renderer.render(renderer.pack_inputs(model), camera)
 
-      image_colour = rendering.image.cpu().numpy()  
-      image_depth = rendering.depth.cpu().numpy()   
+      image_colour = rendering.image.detach().cpu().numpy()
+      image_depth = rendering.depth.detach().cpu().numpy()
 
-      # Ensure depth is float32 and RGB is uint8
-      image_depth = image_depth.astype(np.float32)
-      if image_colour.dtype != np.uint8:
-          image_colour = (image_colour * 255).astype(np.uint8) 
+      # Depth is already float32, Colour needs float32 -> uint8 conversion
+      image_colour = (image_colour * 255).astype(np.uint8) 
 
       rgbd = create_rgbd_from_depth_and_rgb(image_colour, image_depth)
 
@@ -356,13 +414,16 @@ def main():
       # scale to match model
       query_pcd = scale_pcd(query_pcd, 1000)
 
-      reg_gicp = apply_GICP(query_pcd, model_pcd, noisy_w2c)
+      query_pcd = noise_adder.add_outliers(query_pcd, noise_std=0.1)
+      query_pcd = noise_adder.add_gaussian_noise(query_pcd, std=0.001)
+      query_pcd = noise_adder.add_density_variation(query_pcd, keep_ratio=0.75)
+      query_pcd = noise_adder.add_quantization_noise(query_pcd, step_size=0.003)
+
+      reg_gicp = apply_GICP(query_pcd, model_pcd, w2c_noisy)
 
       query_pcd.transform(reg_gicp.transformation)
 
-      aligned_image = show_alignment_from_view(query_pcd, model_pcd, c2w, show_image=False)
-
-      # aligned_image = write_rmse_on_image(aligned_image, reg_gicp.inlier_rmse)
+      aligned_image = show_alignment_from_view(query_pcd, model_pcd, c2w, show_image=args.show_result)
 
       plt.imsave(f"splat-viewer/splat_viewer/test_images/alignment_{i}.png", aligned_image)
 
