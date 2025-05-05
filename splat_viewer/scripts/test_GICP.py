@@ -392,7 +392,7 @@ def main():
       w2c = camera.world_t_camera
       c2w = camera.camera_t_world
 
-      w2c_noisy = add_noise_to_w2c(w2c, pos_noise_scale=0.10, rot_noise_deg=5.0)
+      w2c_noisy = add_noise_to_w2c(w2c, pos_noise_scale=0.2, rot_noise_deg=7.5)
 
       # create a rendering
       rendering = renderer.render(renderer.pack_inputs(model), camera)
@@ -414,10 +414,10 @@ def main():
       # scale to match model
       query_pcd = scale_pcd(query_pcd, 1000)
 
-      query_pcd = noise_adder.add_outliers(query_pcd, noise_std=0.1)
-      query_pcd = noise_adder.add_gaussian_noise(query_pcd, std=0.001)
-      query_pcd = noise_adder.add_density_variation(query_pcd, keep_ratio=0.75)
-      query_pcd = noise_adder.add_quantization_noise(query_pcd, step_size=0.003)
+      query_pcd = noise_adder.add_outliers(query_pcd, noise_std=0.5, outlier_ratio=0.03)
+      query_pcd = noise_adder.add_gaussian_noise(query_pcd, std=0.005)
+      query_pcd = noise_adder.add_density_variation(query_pcd, keep_ratio=0.6)
+      query_pcd = noise_adder.add_quantization_noise(query_pcd, step_size=0.005)
 
       reg_gicp = apply_GICP(query_pcd, model_pcd, w2c_noisy)
 
