@@ -1,11 +1,93 @@
 import numpy as np
 import open3d as o3d
 from typing import Tuple, Optional
+from scipy.spatial.transform import Rotation as R
 
-class PointCloudNoise:
+class NoiseAdder:
     def __init__(self):
         pass
 
+
+
+    def generate_pose_noise(
+        self,
+        pos_noise_scale=0.15,
+        rot_noise_deg=7.5):
+        """
+        Generates random pose noise components.
+        
+        Args:
+            pos_noise_scale (float): Max translation noise (meters)
+            rot_noise_deg (float): Max rotation noise (degrees)
+            
+        Returns:
+            tuple: (position_noise, rotation_matrix_noise)
+                  position_noise: np.ndarray (3,) translation noise vector
+                  rotation_matrix_noise: np.ndarray (3,3) rotation noise matrix
+        """
+        # Generate translation noise
+        pos_noise = np.random.uniform(-pos_noise_scale, pos_noise_scale, 3)
+        
+        # Generate rotation noise
+        rot_noise_rad = np.radians(rot_noise_deg)
+        angle_noise = np.random.uniform(-rot_noise_rad, rot_noise_rad, 3)
+        R_noise = o3d.geometry.get_rotation_matrix_from_xyz(angle_noise)
+        
+        return pos_noise, R_noise
+
+    def print_pose_noise(
+        self,
+        pos_noise,
+        rot_matrix):
+        """
+        Prints pose noise in human-friendly units:
+        - Translation in centimeters
+        - Rotation as axis-angle in degrees
+        """
+        # Convert translation to cm (m to cm)
+        pos_cm = pos_noise * 100
+        
+        # Convert rotation matrix to axis-angle (degrees)
+        rot = R.from_matrix(rot_matrix)
+        axis_angle = rot.as_rotvec()
+        angle_deg = np.degrees(np.linalg.norm(axis_angle))
+        if angle_deg > 1e-6:  # Avoid division by zero
+            axis = axis_angle / np.linalg.norm(axis_angle)
+        else:
+            axis = np.zeros(3)
+        
+        # Format output
+        print("\n=== Pose Noise ===")
+        print(f"Translation (cm):")
+        print(f"  X: {pos_cm[0]:+.2f} cm")
+        print(f"  Y: {pos_cm[1]:+.2f} cm")
+        print(f"  Z: {pos_cm[2]:+.2f} cm")
+        
+        print("\nRotation:")
+        print(f"  Angle: {angle_deg:.2f}°")
+        print(f"  Axis: [{axis[0]:+.2f}, {axis[1]:+.2f}, {axis[2]:+.2f}]")
+
+    def add_camera_pose_noise(
+        self,
+        w2c,
+        pos_noise_scale=0.1,
+        rot_noise_deg=5.0,
+        print_noise=False):
+        """Original function now using the two new functions"""
+
+        pos_noise, R_noise = self.generate_pose_noise(pos_noise_scale, rot_noise_deg)
+        
+        if print_noise:
+          self.print_pose_noise(pos_noise, R_noise)
+
+        def apply_camera_pose_noise():
+          noisy_w2c = w2c.copy()
+          noisy_w2c[:3, 3] += pos_noise  # Apply translation noise
+          noisy_w2c[:3, :3] = noisy_w2c[:3, :3] @ R_noise  # Apply rotation noise
+          return noisy_w2c
+        
+        return apply_camera_pose_noise()
+    
     def add_gaussian_noise(
         self, 
         pcd: o3d.geometry.PointCloud, 
