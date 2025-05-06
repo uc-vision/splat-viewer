@@ -22,9 +22,10 @@ dependencies = [
   "opencv_python",
   "pyrender",
   "roma"
-
 ]
 
+[pypi-dependencies]
+small-gicp = "*"
 
 [project.urls] 
 "Homepage" = "https://github.com/uc-vision/splat-viewer"
