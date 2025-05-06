@@ -3,11 +3,17 @@ from splat_viewer.renderer.taichi_splatting import GaussianRenderer
 from splat_viewer.scripts.noise_adder import NoiseAdder
 from splat_viewer.camera.fov import FOVCamera
 from splat_viewer.camera.visibility import visibility
+from scipy.spatial.transform import Rotation
+
 
 from beartype.typing import List
 import torch
 import open3d as o3d
 import numpy as np
+
+from time import perf_counter
+
+import small_gicp
 
 class CameraIntrinsics:
   def __init__(self, focal_length, principal_point):
@@ -154,3 +160,48 @@ class ModelICP:
     print("RMSE:", reg_gicp.inlier_rmse)  # Root Mean Square Error of inliers
 
     return reg_gicp
+
+  def apply_smallGICP(self, query_pcd, w2c=np.eye(4)):
+
+    target, target_tree = small_gicp.preprocess_points(np.asarray(self.model_pcd.points), downsampling_resolution=0.001)
+    source, source_tree = small_gicp.preprocess_points(np.asarray(query_pcd.points), downsampling_resolution=0.001)
+
+    result = small_gicp.align(target, source, target_tree, init_T_target_source=w2c, num_threads=8, registration_type="GICP")
+
+    # print('--- registration result ---')
+    # print(result)
+    
+    return result.T_target_source
+  
+  def verify_result(self, T_target_source, gt_T_target_source):
+    # Compute error transform
+    error = np.linalg.inv(T_target_source) @ gt_T_target_source
+    
+    # Translation error (Euclidean distance)
+    error_trans = np.linalg.norm(error[:3, 3])
+    
+    # Rotation error (in degrees)
+    error_rot = Rotation.from_matrix(error[:3, :3]).magnitude()
+    error_rot_deg = np.degrees(error_rot)  # Convert to degrees
+    
+    # Per-axis translation errors
+    error_x = error[0, 3]
+    error_y = error[1, 3]
+    error_z = error[2, 3]
+    
+    # Print detailed error report
+    print("\n--- Alignment Error Report ---")
+    print(f"Total Translation Error: {error_trans:.4f} m")
+    print(f"  X-axis Error: {error_x:.4f} m")
+    print(f"  Y-axis Error: {error_y:.4f} m") 
+    print(f"  Z-axis Error: {error_z:.4f} m")
+    print(f"Rotation Error: {error_rot_deg:.2f}°")
+    
+    # Check thresholds (0.05m and ~2.86°)
+    trans_pass = error_trans < 0.001
+    rot_pass = error_rot < 0.025  # ~0.025 radians = 1.43°
+    
+    print("\n--- Verification ---")
+    print(f"Translation Check: {'PASS' if trans_pass else f'FAIL (threshold: 0.001m)'}")
+    print(f"Rotation Check: {'PASS' if rot_pass else f'FAIL (threshold: {np.degrees(0.025):.2f}°)'}")
+    

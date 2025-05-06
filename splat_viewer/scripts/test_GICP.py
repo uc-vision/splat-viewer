@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 import os
 import glob
+from time import perf_counter
 
 from splat_viewer.scripts.noise_adder import NoiseAdder
 from splat_viewer.scripts.model_icp import ModelICP
@@ -217,7 +218,7 @@ def main():
       w2c = model_icp.get_w2c(camera)
       c2w = model_icp.get_c2w(camera)
 
-      w2c_noisy = noise_adder.add_camera_pose_noise(w2c, pos_noise_scale=0.2, rot_noise_deg=7.5)
+      w2c_noisy = noise_adder.add_camera_pose_noise(w2c, pos_noise_scale=0.1, rot_noise_deg=5.0)
 
       # create a rendering
       rendering = model_icp.render(camera)
@@ -230,14 +231,26 @@ def main():
 
       query_pcd = model_icp.create_query_pcd(colour_image=colour_image, depth_image= depth_image)
 
-      query_pcd = noise_adder.add_outliers(query_pcd, noise_std=0.5, outlier_ratio=0.03)
-      query_pcd = noise_adder.add_gaussian_noise(query_pcd, std=0.005)
-      query_pcd = noise_adder.add_density_variation(query_pcd, keep_ratio=0.6)
-      query_pcd = noise_adder.add_quantization_noise(query_pcd, step_size=0.005)
+      query_pcd = noise_adder.add_outliers(query_pcd, noise_std=0.5, outlier_ratio=0.01)
+      query_pcd = noise_adder.add_gaussian_noise(query_pcd, std=0.0001)
+      query_pcd = noise_adder.add_density_variation(query_pcd, keep_ratio=0.8)
+      query_pcd = noise_adder.add_quantization_noise(query_pcd, step_size=0.001)
 
+      # start = perf_counter()
       reg_gicp = model_icp.apply_GICP(query_pcd, w2c_noisy)
+      # mid = perf_counter()
 
-      query_pcd.transform(reg_gicp.transformation)
+      small_GICP_T = model_icp.apply_smallGICP(query_pcd, w2c=w2c_noisy)
+
+      # end =perf_counter()
+
+      # print(f"open3d: {mid - start:.6f} seconds")
+      # print(f"smallGICP: {end - mid:.6f} seconds")
+
+      model_icp.verify_result(small_GICP_T, reg_gicp.transformation)
+
+      # query_pcd.transform(reg_gicp.transformation)
+      query_pcd.transform(small_GICP_T)
 
       aligned_image = show_alignment_from_view(query_pcd, model_pcd, c2w, show_image=args.show_result)
 
