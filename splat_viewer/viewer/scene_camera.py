@@ -76,7 +76,7 @@ class SceneCamera:
 
 
   def resized(self, size:Tuple[int, int]):
-    scale_factor = size[1] / self._camera.image_size[1]
+    scale_factor = max(size[1] / self._camera.image_size[1], size[0] / self._camera.image_size[0])
     return self._camera.scale_size(scale_factor).pad_to(np.array(size))
   
   @property

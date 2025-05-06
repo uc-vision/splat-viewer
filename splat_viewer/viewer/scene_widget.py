@@ -1,4 +1,5 @@
 from dataclasses import replace
+from typing import List
 from beartype.typing import Tuple, Optional
 
 from PySide6 import QtGui, QtCore, QtWidgets
@@ -67,6 +68,14 @@ class SceneWidget(QtWidgets.QWidget):
     return self.workspace_renderer.gaussians
 
 
+  def median_point(self, points: List[np.ndarray]) -> int:
+
+    stacked = np.vstack(points)  # shape: (n, 3)
+    median_coords = np.median(stacked, axis=0)
+    # Compute the Euclidean distances from each point to the median coordinates
+    dists = np.linalg.norm(stacked - median_coords, axis=1)
+    return int(np.argmin(dists))
+
   def load_workspace(self, workspace:Workspace, gaussians:Gaussians):
     self.workspace = workspace
 
@@ -74,7 +83,7 @@ class SceneWidget(QtWidgets.QWidget):
     if gaussians.foreground is None:
       foreground, depths = visibility(workspace.cameras, gaussians.position)
 
-      q = torch.quantile(depths, 0.85)
+      q = torch.quantile(depths, 0.75)
       mask = (foreground > 0.05 * len(workspace.cameras)) & (depths < q)
       gaussians = gaussians.replace(foreground=mask.unsqueeze(1))
 
@@ -82,8 +91,11 @@ class SceneWidget(QtWidgets.QWidget):
     self.workspace_renderer = WorkspaceRenderer(workspace, gaussians, self.renderer)
     self.keypoints = self.read_keypoints()
 
-    self.set_camera_index(0)
+    centers = [c.position for c in workspace.cameras]
+    self.set_camera_index(self.median_point(centers))
     self.camera_state = FlyControl()
+
+
 
   def update_workspace(self, gaussians:Gaussians, index:Optional[int]=None):
     self.load_workspace(self.workspace, gaussians)
@@ -120,8 +132,10 @@ class SceneWidget(QtWidgets.QWidget):
     self.camera_state.transition(None)
 
     camera = self.workspace.cameras[index]
-    print('Showing view from camera', camera.image_name)
+    print(f'Showing view from camera {index}, {camera.image_name}')
     self.zoom = 1.0
+
+    print(camera)
 
     self.camera.set_camera(camera)
     self.camera_index = index
