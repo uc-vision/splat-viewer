@@ -16,13 +16,18 @@ import glob
 from splat_viewer.scripts.noise_adder import NoiseAdder
 from splat_viewer.scripts.model_icp import ModelICP
 
-def clear_test_images(folder_path="splat-viewer/splat_viewer/test_images/"):
+def clear_test_images():
     """
     Deletes all files in the specified images folder.
     Safely handles cases where folder doesn't exist.
     """
-    # Create the folder if it doesn't exist
-    os.makedirs(folder_path, exist_ok=True)
+    BASE_DIR = Path(__file__).parent.parent
+
+    # Define paths for outputs
+    SAVE_DIR = BASE_DIR / "test_images" 
+    SAVE_DIR.mkdir(parents=True, exist_ok=True)  # Creates dir if it doesn't exist
+
+    folder_path = SAVE_DIR
     
     # Get all image files (common extensions)
     image_extensions = ['*.png', '*.jpg', '*.jpeg', '*.bmp']
@@ -169,6 +174,15 @@ def parse_arguments():
 
   return args
 
+def save_image(aligned_image, cam_num):
+  BASE_DIR = Path(__file__).parent.parent 
+
+  SAVE_DIR = BASE_DIR / "test_images"
+  SAVE_DIR.mkdir(parents=True, exist_ok=True) 
+
+  file_path = SAVE_DIR / f"alignment_{cam_num}.png"
+
+  plt.imsave(file_path, aligned_image)
 
 def main():
   torch.cuda.empty_cache()
@@ -227,7 +241,7 @@ def main():
 
       aligned_image = show_alignment_from_view(query_pcd, model_pcd, c2w, show_image=args.show_result)
 
-      plt.imsave(f"splat-viewer/splat_viewer/test_images/alignment_{i}.png", aligned_image)
+      save_image(aligned_image=aligned_image, cam_num=i)
 
 if __name__ == "__main__":
   main()  

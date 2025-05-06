@@ -7,8 +7,6 @@ class NoiseAdder:
     def __init__(self):
         pass
 
-
-
     def generate_pose_noise(
         self,
         pos_noise_scale=0.15,
@@ -76,7 +74,7 @@ class NoiseAdder:
         """Original function now using the two new functions"""
 
         pos_noise, R_noise = self.generate_pose_noise(pos_noise_scale, rot_noise_deg)
-        
+
         if print_noise:
           self.print_pose_noise(pos_noise, R_noise)
 
