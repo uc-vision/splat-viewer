@@ -3,165 +3,107 @@ from pathlib import Path
 import taichi as ti
 import torch
 
+from beartype import beartype
+
 from splat_viewer.gaussians.workspace import load_workspace
 from taichi_splatting.taichi_queue import TaichiQueue
 
 import matplotlib.pyplot as plt
 import open3d as o3d
+
 import cv2
 import numpy as np
 import os
 import glob
 from time import perf_counter
+from argparse import Namespace
 
 from splat_viewer.scripts.noise_adder import NoiseAdder
 from splat_viewer.scripts.model_icp import ModelICP
 
 def clear_test_images():
-    """
-    Deletes all files in the specified images folder.
-    Safely handles cases where folder doesn't exist.
-    """
-    BASE_DIR = Path(__file__).parent.parent
+  """
+  Deletes all files in the specified images folder.
+  Safely handles cases where folder doesn't exist.
+  """
+  BASE_DIR = Path(__file__).parent.parent
 
-    # Define paths for outputs
-    SAVE_DIR = BASE_DIR / "test_images" 
-    SAVE_DIR.mkdir(parents=True, exist_ok=True)  # Creates dir if it doesn't exist
+  # Define paths for outputs
+  SAVE_DIR = BASE_DIR / "test_images" 
+  SAVE_DIR.mkdir(parents=True, exist_ok=True)  # Creates dir if it doesn't exist
 
-    folder_path = SAVE_DIR
-    
-    # Get all image files (common extensions)
-    image_extensions = ['*.png', '*.jpg', '*.jpeg', '*.bmp']
-    image_files = []
-    for ext in image_extensions:
-        image_files.extend(glob.glob(os.path.join(folder_path, ext)))
-    
-    # Delete each file
-    for file_path in image_files:
-        try:
-            os.remove(file_path)
-            print(f"Deleted: {file_path}")
-        except Exception as e:
-            print(f"Error deleting {file_path}: {e}")
+  folder_path = SAVE_DIR
+  
+  # Get all image files (common extensions)
+  image_extensions = ['*.png', '*.jpg', '*.jpeg', '*.bmp']
+  image_files = []
+  for ext in image_extensions:
+      image_files.extend(glob.glob(os.path.join(folder_path, ext)))
+  
+  # Delete each file
+  for file_path in image_files:
+      try:
+          os.remove(file_path)
+          print(f"Deleted: {file_path}")
+      except Exception as e:
+          print(f"Error deleting {file_path}: {e}")
 
-def compare_pointcloud_scales(source, target):
-    """
-    Compare scales of two point clouds by analyzing:
-    1. Bounding box dimensions
-    2. Average distance from centroid
-    3. Standard deviation of distances
-    """
-    # Convert to numpy arrays if not already
-    source_pts = np.asarray(source.points)
-    target_pts = np.asarray(target.points)
-    
-    # 1. Compare bounding box dimensions
-    source_box = source.get_axis_aligned_bounding_box()
-    target_box = target.get_axis_aligned_bounding_box()
-    
-    print("\nBounding Box Dimensions:")
-    print(f"Source (X,Y,Z): {source_box.get_extent()}")
-    print(f"Target (X,Y,Z): {target_box.get_extent()}")
-    print(f"Ratio (Source/Target): {source_box.get_extent() / target_box.get_extent()}")
-    
-    # 2. Compare average distances from centroid
-    def get_scale_metrics(points):
-        centroid = np.mean(points, axis=0)
-        distances = np.linalg.norm(points - centroid, axis=1)
-        return {
-            'avg_distance': np.mean(distances),
-            'std_distance': np.std(distances),
-            'max_distance': np.max(distances)
-        }
-    
-    source_metrics = get_scale_metrics(source_pts)
-    target_metrics = get_scale_metrics(target_pts)
-    
-    print("\nDistance from Centroid Metrics:")
-    print(f"Source - Avg: {source_metrics['avg_distance']:.4f}, "
-          f"Std: {source_metrics['std_distance']:.4f}, "
-          f"Max: {source_metrics['max_distance']:.4f}")
-    print(f"Target - Avg: {target_metrics['avg_distance']:.4f}, "
-          f"Std: {target_metrics['std_distance']:.4f}, "
-          f"Max: {target_metrics['max_distance']:.4f}")
-    print(f"Scale Ratio (Source/Target): {source_metrics['avg_distance'] / target_metrics['avg_distance']:.4f}")
-    
-    # 3. Visual comparison
-    source.paint_uniform_color([1, 0, 0])  # Red
-    target.paint_uniform_color([0, 1, 0])  # Green
-    o3d.visualization.draw_geometries([source, target], 
-                                     window_name="Scale Comparison (Red=Source, Green=Target)")
-    
-def show_alignment_from_view(source, target, w2c=None, point_size=1.0, show_image=True):
-    """
-    Visualize alignment of source (red) and target (green) point clouds,
-    optionally from a specified camera pose, with adjustable point size.
-    
-    Args:
-        source (o3d.geometry.PointCloud): Source point cloud (will be shown in red)
-        target (o3d.geometry.PointCloud): Target point cloud (will be shown in green)
-        w2c (np.ndarray): Optional 4x4 world-to-camera transformation matrix
-        point_size (float): Point size for visualization (default: 1.0, finest)
-    """
-    # Colorize point clouds
-    source.paint_uniform_color([1, 0, 0])  # Red = source
-    target.paint_uniform_color([0, 1, 0])  # Green = target
+@beartype
+def show_alignment_from_view(
+  source:o3d.geometry.PointCloud, 
+  target:o3d.geometry.PointCloud, 
+  w2c:np.ndarray = None, 
+  point_size:float=1.0, 
+  show_image:bool=True
+) -> np.ndarray:
+  """
+  Visualize alignment of source (red) and target (green) point clouds,
+  optionally from a specified camera pose, with adjustable point size.
+  
+  Args:
+      source (o3d.geometry.PointCloud): Source point cloud (will be shown in red)
+      target (o3d.geometry.PointCloud): Target point cloud (will be shown in green)
+      w2c (np.ndarray): Optional 4x4 world-to-camera transformation matrix
+      point_size (float): Point size for visualization (default: 1.0, finest)
+  """
+  # Colorize point clouds
+  source.paint_uniform_color([1, 0, 0])  # Red = source
+  target.paint_uniform_color([0, 1, 0])  # Green = target
 
-    # Create visualizer
-    vis = o3d.visualization.Visualizer()
-    vis.create_window()
-    
-    # Add geometries
-    vis.add_geometry(source)
-    vis.add_geometry(target)
+  # Create visualizer
+  vis = o3d.visualization.Visualizer()
+  vis.create_window()
+  
+  # Add geometries
+  vis.add_geometry(source)
+  vis.add_geometry(target)
 
-    # Set point size (finest by default)
-    render_opt = vis.get_render_option()
-    render_opt.point_size = point_size
+  # Set point size (finest by default)
+  render_opt = vis.get_render_option()
+  render_opt.point_size = point_size
 
-    # Set camera view if w2c is provided
-    if w2c is not None:
-        view_ctl = vis.get_view_control()
-        params = view_ctl.convert_to_pinhole_camera_parameters()
-        params.extrinsic = w2c
-        view_ctl.convert_from_pinhole_camera_parameters(params)
+  # Set camera view if w2c is provided
+  if w2c is not None:
+      view_ctl = vis.get_view_control()
+      params = view_ctl.convert_to_pinhole_camera_parameters()
+      params.extrinsic = w2c
+      view_ctl.convert_from_pinhole_camera_parameters(params)
 
-    # Capture image
-    vis.poll_events()
-    vis.update_renderer()
-    image = vis.capture_screen_float_buffer(do_render=True)
-    image = np.asarray(image) * 255  # Convert to 0-255 range
-    image = image.astype(np.uint8)
-
-    if show_image:
-       vis.run()
-
-    vis.destroy_window()
-
-    return image
-
-def write_rmse_on_image(image, rmse):
-  image = np.asarray(image) * 255
+  # Capture image
+  vis.poll_events()
+  vis.update_renderer()
+  image = vis.capture_screen_float_buffer(do_render=True)
+  image = np.asarray(image) * 255  # Convert to 0-255 range
   image = image.astype(np.uint8)
-  image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-  
-  # Add text annotation if specified
-  if rmse is not None:
-      font = cv2.FONT_HERSHEY_SIMPLEX
-      position = (30, 50)  # (x,y) top-left corner
-      font_scale = 1.5
-      color = (255, 255, 255)  # White text
-      thickness = 3
-      
-      cv2.putText(image, str(rmse), position, font, 
-                font_scale, color, thickness, cv2.LINE_AA)
-  
-  # Convert back to RGB for saving/display
-  image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+  if show_image:
+      vis.run()
+
+  vis.destroy_window()
 
   return image
 
-def parse_arguments():
+def parse_arguments() -> Namespace:
   parser = argparse.ArgumentParser(description="Add a 'foreground' annotation to a .ply gaussian splatting file")
   parser.add_argument("model_path", type=Path, help="Path to the gaussian splatting workspace")
   parser.add_argument("--far", default=1.0, type=float, help="Max depth to determine the visible ROI")
@@ -175,7 +117,11 @@ def parse_arguments():
 
   return args
 
-def save_image(aligned_image, cam_num):
+def save_image(
+  aligned_image:np.ndarray,
+  cam_num:int
+):
+
   BASE_DIR = Path(__file__).parent.parent 
 
   SAVE_DIR = BASE_DIR / "test_images"
@@ -249,8 +195,8 @@ def main():
 
       model_icp.verify_result(small_GICP_T, reg_gicp.transformation)
 
-      # query_pcd.transform(reg_gicp.transformation)
-      query_pcd.transform(small_GICP_T)
+      query_pcd.transform(reg_gicp.transformation)
+      # query_pcd.transform(small_GICP_T)
 
       aligned_image = show_alignment_from_view(query_pcd, model_pcd, c2w, show_image=args.show_result)
 

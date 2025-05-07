@@ -5,14 +5,18 @@ from splat_viewer.camera.fov import FOVCamera
 from splat_viewer.camera.visibility import visibility
 from scipy.spatial.transform import Rotation
 
+from numpy.typing import NDArray
 
 from beartype.typing import List
 import torch
 import open3d as o3d
 import numpy as np
+from argparse import Namespace
+from splat_viewer.gaussians.data_types import Gaussians, Rendering
+from beartype import beartype
 
 from time import perf_counter
-
+from splat_viewer.gaussians.workspace import Workspace
 import small_gicp
 
 class CameraIntrinsics:
@@ -20,16 +24,24 @@ class CameraIntrinsics:
     self.focal_length = focal_length
     self.principal_point = principal_point
 
-def load_model(workspace):
+@beartype
+def load_model(
+  workspace:Workspace
+)-> Gaussians:
   model_name = workspace.latest_iteration()
   model_file = workspace.model_filename(model_name)
   model = read_gaussians(model_file)
   return model
 
 class ModelICP:
-  def __init__(self, workspace, args):
-    self.cameras = workspace.cameras
-    model = load_model(workspace) 
+  def __init__(
+    self,
+    workspace:Workspace,
+    args:Namespace
+  ):
+
+    self.cameras:list[FOVCamera] = workspace.cameras
+    model:Gaussians = load_model(workspace) 
     model = model.to(args.device)
     model = self.crop_model(model, self.cameras, args) 
     self.model = model
@@ -41,7 +53,14 @@ class ModelICP:
     self.renderer = GaussianRenderer()
     self.noise_adder = NoiseAdder()
 
-  def crop_model(self, model, cameras:List[FOVCamera], args):
+  @beartype
+  def crop_model(
+    self,
+    model:Gaussians,
+    cameras:List[FOVCamera],
+    args:Namespace
+    )->Gaussians:
+
     num_visible, min_distance = visibility(cameras, model.position, near = args.near)
 
     min_views = max(1, len(cameras) * args.min_percent / 100)
@@ -59,7 +78,11 @@ class ModelICP:
 
     return model
   
-  def create_model_pcd(self, model):
+  @beartype
+  def create_model_pcd(
+    self,
+    model:Gaussians
+  )->o3d.geometry.PointCloud:
     # Create open3d pointcloud of the model
     xyz_np = model.position.cpu().numpy().astype(np.float64)  # Shape [N, 3]
 
@@ -79,24 +102,52 @@ class ModelICP:
   def model_pcd(self):
     return self._model_pcd
   
-  def load_model_pcd(self, model_pcd):
+  @beartype
+  def load_model_pcd(
+    self,
+    model_pcd:o3d.geometry.PointCloud
+  ):
     self._model_pcd = model_pcd
 
-  def get_w2c(self, camera):
+  @beartype
+  def get_w2c(
+    self,
+    camera:FOVCamera
+  )->NDArray[np.float64]:
+
     return camera.world_t_camera
   
-  def get_c2w(self, camera):
+  @beartype
+  def get_c2w(
+    self,
+    camera:FOVCamera
+  )->NDArray[np.float64]:
     return camera.camera_t_world
 
-  def render(self, camera):
+  @beartype
+  def render(
+    self,
+    camera:FOVCamera
+    )->Rendering:
+
     "Return a Rendering from arg:camera position"
     return self.renderer.render(self.renderer.pack_inputs(self.model), camera)
-
-  def get_camera(self, index):
+  
+  @beartype
+  def get_camera(
+    self,
+    index:int
+  ):
+    
     "returns camera of the index from the camera list"
     return self.cameras[index]
   
-  def define_intrinsics(self, image_colour):
+  @beartype
+  def define_intrinsics(
+    self,
+    image_colour:NDArray[np.uint8]
+  )->o3d.camera.PinholeCameraIntrinsic:
+    
     return o3d.camera.PinholeCameraIntrinsic(
         width=image_colour.shape[1],
         height=image_colour.shape[0],
@@ -105,15 +156,27 @@ class ModelICP:
         cx=self.intrinsics.principal_point[0],  
         cy=self.intrinsics.principal_point[1]   
     )
-
-  def rgbd_from_depth_and_rgb(self, rgb, depth):
+  
+  @beartype
+  def rgbd_from_depth_and_rgb(
+    self,
+    rgb:NDArray[np.uint8],
+    depth:NDArray[np.float32]
+  )->o3d.geometry.RGBDImage:
+    
     return o3d.geometry.RGBDImage.create_from_color_and_depth(
         o3d.geometry.Image(rgb),
         o3d.geometry.Image(depth),
         convert_rgb_to_intensity=False
     )
-
-  def create_query_pcd(self, colour_image, depth_image):
+  
+  @beartype
+  def create_query_pcd(
+    self,
+    colour_image:NDArray[np.uint8],
+    depth_image:NDArray[np.float32]
+  )->o3d.geometry.PointCloud:
+    
     rgbd = self.rgbd_from_depth_and_rgb(depth=depth_image, rgb=colour_image)
 
     query_pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd,
@@ -123,27 +186,38 @@ class ModelICP:
     
     return query_pcd
 
-  def scale_pcd(self, pcd, scale_factor):
+  @beartype
+  def scale_pcd(
+    self,
+    pcd:o3d.geometry.PointCloud,
+    scale_factor:int
+  )->o3d.geometry.PointCloud:
+    
     return pcd.scale(scale_factor, [0,0,0])
   
-  def apply_GICP(self, query_pcd, w2c=np.eye(4)):
+  @beartype
+  def apply_GICP(
+    self,
+    query_pcd:o3d.geometry.PointCloud,
+    w2c:NDArray[np.float64]=np.eye(4)
+  )->o3d.pipelines.registration.RegistrationResult:
 
-    # Step 1: Auto-tune parameters
+    # estimate max_correspondence_distance
     bbox = self._model_pcd.get_axis_aligned_bounding_box().get_extent()
     threshold = 0.15 * np.max(bbox)  # 15% of largest cloud dimension
 
     distances = query_pcd.compute_nearest_neighbor_distance()
     radius = 2.5 * np.mean(distances)
 
-    # Step 2: Estimate normals
+    # estimate normals
     query_pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
         radius=radius, max_nn=40))
     self._model_pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
         radius=radius, max_nn=40))
 
-    # Step 3: Run GICP
+    # gicp
     criteria = o3d.pipelines.registration.ICPConvergenceCriteria(
-        max_iteration=150,
+        max_iteration=30,
         relative_fitness=1e-6,
         relative_rmse=1e-6
     )
@@ -161,7 +235,12 @@ class ModelICP:
 
     return reg_gicp
 
-  def apply_smallGICP(self, query_pcd, w2c=np.eye(4)):
+  @beartype
+  def apply_smallGICP(
+    self,
+    query_pcd:o3d.geometry.PointCloud,
+    w2c:NDArray[np.float64]=np.eye(4)
+    )->NDArray[np.float64]:
 
     target, target_tree = small_gicp.preprocess_points(np.asarray(self.model_pcd.points), downsampling_resolution=0.001)
     source, source_tree = small_gicp.preprocess_points(np.asarray(query_pcd.points), downsampling_resolution=0.001)
@@ -173,7 +252,13 @@ class ModelICP:
     
     return result.T_target_source
   
-  def verify_result(self, T_target_source, gt_T_target_source):
+  @beartype
+  def verify_result(
+    self,
+    T_target_source:NDArray[np.float64],
+    gt_T_target_source:NDArray[np.float64]
+  ):
+    
     # Compute error transform
     error = np.linalg.inv(T_target_source) @ gt_T_target_source
     
