@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 import taichi as ti
 import torch
+import copy
 
 from beartype import beartype
 
@@ -112,6 +113,7 @@ def parse_arguments() -> Namespace:
   parser.add_argument("--device", default='cuda:0')
   parser.add_argument("--show_result", action="store_true", help='Display resulting ICP alignment')
   parser.add_argument("--num_samples", default=5, type=int, help='Number of samples (different camera FOV) to test within scan')
+  parser.add_argument("--icp", default='open3d', help='icp algorithm. Choices: "smallgicp", "open3d", "open3d.t')
 
   args = parser.parse_args()
 
@@ -163,40 +165,58 @@ def main():
 
       w2c = model_icp.get_w2c(camera)
       c2w = model_icp.get_c2w(camera)
+      print("hurrr")
 
-      w2c_noisy = noise_adder.add_camera_pose_noise(w2c, pos_noise_scale=0.1, rot_noise_deg=5.0)
+      w2c_noisy = noise_adder.add_camera_pose_noise(w2c, pos_noise_scale=0.08, rot_noise_deg=5.0)
 
+      print("hello")
       # create a rendering
       rendering = model_icp.render(camera)
 
       colour_image = rendering.image.detach().cpu().numpy()
       depth_image = rendering.depth.detach().cpu().numpy()
+      print("meow")
 
       # Depth is already float32, Colour needs float32 -> uint8 conversion
       colour_image = (colour_image * 255).astype(np.uint8) 
+      print("wot")
 
       query_pcd = model_icp.create_query_pcd(colour_image=colour_image, depth_image= depth_image)
 
-      query_pcd = noise_adder.add_outliers(query_pcd, noise_std=0.5, outlier_ratio=0.01)
+      print("hello2")
+
+      query_pcd = noise_adder.add_outliers(query_pcd, noise_std=0.5, outlier_ratio=0.005)
       query_pcd = noise_adder.add_gaussian_noise(query_pcd, std=0.0001)
       query_pcd = noise_adder.add_density_variation(query_pcd, keep_ratio=0.8)
       query_pcd = noise_adder.add_quantization_noise(query_pcd, step_size=0.001)
 
-      # start = perf_counter()
-      reg_gicp = model_icp.apply_GICP(query_pcd, w2c_noisy)
-      # mid = perf_counter()
+      print("About to start ICP")
 
-      small_GICP_T = model_icp.apply_smallGICP(query_pcd, w2c=w2c_noisy)
+      if args.icp == "smallgicp":
+        small_GICP_T = model_icp.apply_smallGICP(query_pcd, w2c=w2c)
 
-      # end =perf_counter()
+      elif args.icp == "open3d":
+        reg_gicp = model_icp.apply_GICP(query_pcd, w2c=w2c)
 
-      # print(f"open3d: {mid - start:.6f} seconds")
-      # print(f"smallGICP: {end - mid:.6f} seconds")
+      elif args.icp == "open3d.t":
+        print("Transforming to tensors")
+        query_pcd_t = o3d.t.geometry.PointCloud.from_legacy(query_pcd)
+        w2c_t = o3d.core.Tensor(w2c, dtype=o3d.core.Dtype.Float64)
+        reg_gicp = model_icp.apply_tGICP(query_pcd_t, w2c=w2c_t)
 
-      model_icp.verify_result(small_GICP_T, reg_gicp.transformation)
+      # model_icp.verify_result(small_GICP_T, reg_gicp.transformation)
 
-      query_pcd.transform(reg_gicp.transformation)
-      # query_pcd.transform(small_GICP_T)
+      query_pcd_copy = copy.deepcopy(query_pcd)
+
+      query_pcd_copy.transform(w2c)
+
+      aligned_image = show_alignment_from_view(query_pcd_copy, model_pcd, c2w, show_image=args.show_result)
+
+      if args.icp == "smallgicp":
+        query_pcd.transform(small_GICP_T) 
+
+      elif args.icp == "open3d.t":
+        query_pcd.transform(reg_gicp.transformation.numpy())
 
       aligned_image = show_alignment_from_view(query_pcd, model_pcd, c2w, show_image=args.show_result)
 

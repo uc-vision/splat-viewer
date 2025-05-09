@@ -1,83 +1,32 @@
 from splat_viewer.gaussians.loading import  read_gaussians
-from splat_viewer.renderer.taichi_splatting import GaussianRenderer
 from splat_viewer.scripts.noise_adder import NoiseAdder
-from splat_viewer.camera.fov import FOVCamera
 from splat_viewer.camera.visibility import visibility
 from scipy.spatial.transform import Rotation
 
 from numpy.typing import NDArray
 
-from beartype.typing import List
-import torch
 import open3d as o3d
 import numpy as np
 from argparse import Namespace
-from splat_viewer.gaussians.data_types import Gaussians, Rendering
+from splat_viewer.gaussians.data_types import Gaussians
 from beartype import beartype
 
 from time import perf_counter
 from splat_viewer.gaussians.workspace import Workspace
 import small_gicp
 
-class CameraIntrinsics:
-  def __init__(self, focal_length, principal_point):
-    self.focal_length = focal_length
-    self.principal_point = principal_point
+from splat_viewer.scripts.renderer_workspace import RenderingWorkspace
 
-@beartype
-def load_model(
-  workspace:Workspace
-)-> Gaussians:
-  model_name = workspace.latest_iteration()
-  model_file = workspace.model_filename(model_name)
-  model = read_gaussians(model_file)
-  return model
-
-class ModelICP:
+class ModelICP(RenderingWorkspace):
   def __init__(
     self,
     workspace:Workspace,
     args:Namespace
   ):
-
-    self.cameras:list[FOVCamera] = workspace.cameras
-    model:Gaussians = load_model(workspace) 
-    model = model.to(args.device)
-    model = self.crop_model(model, self.cameras, args) 
-    self.model = model
-
-    self.intrinsics = CameraIntrinsics(self.cameras[0].focal_length, self.cameras[0].principal_point)
-
+    super().__init__(workspace=workspace, args=args)
     self.load_model_pcd(self.create_model_pcd(self.model))
-    
-    self.renderer = GaussianRenderer()
     self.noise_adder = NoiseAdder()
 
-  @beartype
-  def crop_model(
-    self,
-    model:Gaussians,
-    cameras:List[FOVCamera],
-    args:Namespace
-    )->Gaussians:
-
-    num_visible, min_distance = visibility(cameras, model.position, near = args.near)
-
-    min_views = max(1, len(cameras) * args.min_percent / 100)
-    is_visible = (num_visible > min_views)
-
-    is_near = (min_distance < args.far)
-    n_near = is_near.sum(dtype=torch.int32)
-
-    print(f"Cropped model from {model.batch_size[0]} to {is_visible.sum().item()} visible points, {n_near} near (at least {min_views} views)")
-    model = model.replace(foreground=is_near.reshape(-1, 1))
-
-    model = model[is_visible]
-
-    model = model.crop_foreground()
-
-    return model
-  
   @beartype
   def create_model_pcd(
     self,
@@ -99,9 +48,13 @@ class ModelICP:
     return len(self.cameras)
 
   @property
-  def model_pcd(self):
+  def model_pcd(self)->o3d.geometry.PointCloud:
     return self._model_pcd
   
+  @property
+  def model_pcd_t(self)->o3d.t.geometry.PointCloud:
+    return o3d.t.geometry.PointCloud.from_legacy(self._model_pcd)
+
   @beartype
   def load_model_pcd(
     self,
@@ -109,39 +62,7 @@ class ModelICP:
   ):
     self._model_pcd = model_pcd
 
-  @beartype
-  def get_w2c(
-    self,
-    camera:FOVCamera
-  )->NDArray[np.float64]:
 
-    return camera.world_t_camera
-  
-  @beartype
-  def get_c2w(
-    self,
-    camera:FOVCamera
-  )->NDArray[np.float64]:
-    return camera.camera_t_world
-
-  @beartype
-  def render(
-    self,
-    camera:FOVCamera
-    )->Rendering:
-
-    "Return a Rendering from arg:camera position"
-    return self.renderer.render(self.renderer.pack_inputs(self.model), camera)
-  
-  @beartype
-  def get_camera(
-    self,
-    index:int
-  ):
-    
-    "returns camera of the index from the camera list"
-    return self.cameras[index]
-  
   @beartype
   def define_intrinsics(
     self,
@@ -195,6 +116,47 @@ class ModelICP:
     
     return pcd.scale(scale_factor, [0,0,0])
   
+
+  @beartype
+  def apply_tGICP(
+      self,
+      query_pcd: o3d.t.geometry.PointCloud,
+      w2c: o3d.core.Tensor = o3d.core.Tensor.eye(4)
+  ) -> o3d.t.pipelines.registration.RegistrationResult:
+
+      start = perf_counter()
+
+      # estimate max_correspondence_distance
+      bbox = self.model_pcd_t.get_axis_aligned_bounding_box().get_extent()
+      threshold = 0.15 * float(bbox.max())  # 15% of largest cloud dimension
+
+      # estimate normals
+      query_pcd.estimate_normals(max_nn=40, radius=2.5 * query_pcd.compute_mean_distance())
+      self.model_pcd_t.estimate_normals(max_nn=40, radius=2.5 * self.model_pcd_t.compute_mean_distance())
+
+      # gicp
+      criteria = o3d.t.pipelines.registration.ICPConvergenceCriteria(
+          max_iteration=30,
+          relative_fitness=1e-6,
+          relative_rmse=1e-6
+      )
+
+      reg_gicp = o3d.t.pipelines.registration.icp(
+          query_pcd, self.model_pcd_t, threshold, w2c,
+          estimation_method=o3d.t.pipelines.registration.TransformationEstimationPointToPlane(),
+          criteria=criteria
+      )
+
+      end = perf_counter()
+      print(f"Elapsed Time: {end-start} seconds")
+
+      # Results
+      # print("Generalized ICP Transformation Matrix:\n", reg_gicp.transformation)
+      # print("Fitness Score (inlier ratio):", reg_gicp.fitness)  # Range [0, 1], higher is better
+      print("RMSE:", reg_gicp.inlier_rmse)  # Root Mean Square Error of inliers
+
+      return reg_gicp
+
   @beartype
   def apply_GICP(
     self,
@@ -202,8 +164,11 @@ class ModelICP:
     w2c:NDArray[np.float64]=np.eye(4)
   )->o3d.pipelines.registration.RegistrationResult:
 
+    print("Performing GPU-ICP")
+    start = perf_counter()
+
     # estimate max_correspondence_distance
-    bbox = self._model_pcd.get_axis_aligned_bounding_box().get_extent()
+    bbox = self.model_pcd.get_axis_aligned_bounding_box().get_extent()
     threshold = 0.15 * np.max(bbox)  # 15% of largest cloud dimension
 
     distances = query_pcd.compute_nearest_neighbor_distance()
@@ -212,7 +177,7 @@ class ModelICP:
     # estimate normals
     query_pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
         radius=radius, max_nn=40))
-    self._model_pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
+    self.model_pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
         radius=radius, max_nn=40))
 
     # gicp
@@ -223,10 +188,13 @@ class ModelICP:
     )
 
     reg_gicp = o3d.pipelines.registration.registration_generalized_icp(
-        query_pcd, self._model_pcd, threshold, w2c,
+        query_pcd, self.model_pcd, threshold, w2c,
         o3d.pipelines.registration.TransformationEstimationForGeneralizedICP(),
         criteria
     )
+
+    end = perf_counter()
+    print(f"Elapsed Time: {end-start} seconds")
 
     # Results
     # print("Generalized ICP Transformation Matrix:\n", reg_gicp.transformation)
@@ -242,13 +210,26 @@ class ModelICP:
     w2c:NDArray[np.float64]=np.eye(4)
     )->NDArray[np.float64]:
 
-    target, target_tree = small_gicp.preprocess_points(np.asarray(self.model_pcd.points), downsampling_resolution=0.001)
-    source, source_tree = small_gicp.preprocess_points(np.asarray(query_pcd.points), downsampling_resolution=0.001)
+    target_points = np.asarray(self.model_pcd.points)
+    source_points = np.asarray(query_pcd.points)
 
-    result = small_gicp.align(target, source, target_tree, init_T_target_source=w2c, num_threads=8, registration_type="GICP")
+    start = perf_counter()
 
-    # print('--- registration result ---')
-    # print(result)
+    result = small_gicp.align(
+      target_points,
+      source_points,
+      init_T_target_source=w2c,
+      num_threads=8,
+      max_correspondence_distance=0.1,
+      verbose=False,
+      registration_type="GICP"
+      )
+
+    end = perf_counter()
+
+    print(f"Time elapsed: {end-start} seconds")
+    print('--- registration result ---')
+    print(result)
     
     return result.T_target_source
   
