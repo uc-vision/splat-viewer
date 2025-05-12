@@ -1,17 +1,17 @@
 import argparse
-from dataclasses import replace
 from pathlib import Path
-from beartype.typing import List
+from typing import List
 
-import torch
 from splat_viewer.camera.fov import FOVCamera
 from splat_viewer.camera.visibility import visibility
+import torch
 
 from splat_viewer.gaussians.loading import  read_gaussians, write_gaussians
 from splat_viewer.gaussians.workspace import load_workspace
 
 
-def label_model(model, cameras:List[FOVCamera], args):
+
+def crop_model(model, cameras:List[FOVCamera], args):
   num_visible, min_distance = visibility(cameras, model.position, near = args.near)
 
   min_views = max(1, len(cameras) * args.min_percent / 100)
@@ -19,10 +19,9 @@ def label_model(model, cameras:List[FOVCamera], args):
   is_near = (min_distance < args.far) & (num_visible > min_views)
   n_near = is_near.sum(dtype=torch.int32)
 
-  print(f"Labelled {n_near} points as near ({100.0 * n_near / model.batch_size[0]:.2f}%)")
-  model = model.replace(foreground=is_near.reshape(-1, 1))
+  print(f"Cropped model to {n_near} points from {model.batch_size[0]} points")
+  return model[is_near].to(model.device)
 
-  return model
 
 def main():
 
@@ -35,12 +34,12 @@ def main():
   parser.add_argument("--min_percent", type=float, default=0, help="Minimum percent of views to be included")
   parser.add_argument("--device", default='cuda:0')
 
-  parser.add_argument("--write", action="store_true", help="Write the labelled moel back to the file")
+  parser.add_argument("--write_to", type=Path, help="Write the model to a ply file")
   parser.add_argument("--show", action="store_true")
 
   args = parser.parse_args()
 
-  assert args.show or args.write, "Nothing to do. Please specify --show or --write"
+  assert args.show or args.write_to, "Nothing to do. Please specify --show or --write_to"
 
 
   workspace = load_workspace(args.model_path)
@@ -52,14 +51,13 @@ def main():
     model_file = workspace.model_filename(model_name)
     model = read_gaussians(model_file)
 
-  
     model = model.to(args.device)
-    model = label_model(model, workspace.cameras, args)
+    model = crop_model(model, workspace.cameras, args)
     
 
-    if args.write:    
-      write_gaussians(model_file, model)
-      print(f"Wrote {model} to {model_file}")
+    if args.write_to:    
+      write_gaussians(args.write_to, model)
+      print(f"Wrote {model} to {args.write_to}")
 
     if args.show:
       from splat_viewer.viewer.viewer import show_workspace

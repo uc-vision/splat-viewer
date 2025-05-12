@@ -43,6 +43,7 @@ label-foreground = "splat_viewer.scripts.label_foreground:main"
 export-workspace = "splat_viewer.scripts.export_workspace:main"
 export-rgb-cloud = "splat_viewer.scripts.export_rgb_cloud:main"
 
+crop-foreground = "splat_viewer.scripts.crop_foreground:main"
 
 [tool.ruff]
 indent-width = 2
