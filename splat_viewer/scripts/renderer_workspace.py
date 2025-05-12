@@ -100,6 +100,6 @@ class RenderingWorkspace:
     )->Rendering:
 
     "Return a Rendering from arg:camera position"
-    return self.renderer.render(self.renderer.pack_inputs(self.model, requires_grad=True), camera)
+    return self.renderer.render(self.renderer.pack_inputs(self.model), camera)
   
   

@@ -165,59 +165,56 @@ def main():
 
       w2c = model_icp.get_w2c(camera)
       c2w = model_icp.get_c2w(camera)
-      print("hurrr")
-
-      w2c_noisy = noise_adder.add_camera_pose_noise(w2c, pos_noise_scale=0.08, rot_noise_deg=5.0)
-
-      print("hello")
+      w2c_noisy = noise_adder.add_camera_pose_noise(w2c, pos_noise_scale=0.10, rot_noise_deg=7.0)
+  
       # create a rendering
       rendering = model_icp.render(camera)
-
       colour_image = rendering.image.detach().cpu().numpy()
       depth_image = rendering.depth.detach().cpu().numpy()
-      print("meow")
 
       # Depth is already float32, Colour needs float32 -> uint8 conversion
       colour_image = (colour_image * 255).astype(np.uint8) 
-      print("wot")
 
+      # Create pcd from depth & image, add noise
       query_pcd = model_icp.create_query_pcd(colour_image=colour_image, depth_image= depth_image)
-
-      print("hello2")
-
       query_pcd = noise_adder.add_outliers(query_pcd, noise_std=0.5, outlier_ratio=0.005)
       query_pcd = noise_adder.add_gaussian_noise(query_pcd, std=0.0001)
       query_pcd = noise_adder.add_density_variation(query_pcd, keep_ratio=0.8)
       query_pcd = noise_adder.add_quantization_noise(query_pcd, step_size=0.001)
 
-      print("About to start ICP")
-
+      # Apply ICP
       if args.icp == "smallgicp":
-        small_GICP_T = model_icp.apply_smallGICP(query_pcd, w2c=w2c)
+        small_GICP_T = model_icp.apply_smallGICP(query_pcd, w2c=w2c_noisy)
 
       elif args.icp == "open3d":
-        reg_gicp = model_icp.apply_GICP(query_pcd, w2c=w2c)
+        reg_gicp = model_icp.apply_GICP(query_pcd, w2c=w2c_noisy)
 
       elif args.icp == "open3d.t":
-        print("Transforming to tensors")
-        query_pcd_t = o3d.t.geometry.PointCloud.from_legacy(query_pcd)
-        w2c_t = o3d.core.Tensor(w2c, dtype=o3d.core.Dtype.Float64)
-        reg_gicp = model_icp.apply_tGICP(query_pcd_t, w2c=w2c_t)
+        model_icp.load_model_pcd_t()
+        query_pcd_t = o3d.t.geometry.PointCloud.from_legacy(query_pcd, device=o3d.core.Device("CUDA:0"))
+        w2c_t = o3d.core.Tensor(w2c_noisy, dtype=o3d.core.Dtype.Float32, device=o3d.core.Device("CUDA:0"))
+        reg_gicp_t = model_icp.apply_tGICP(query_pcd_t, w2c=w2c_t)
 
       # model_icp.verify_result(small_GICP_T, reg_gicp.transformation)
+      # model_icp.verify_result(reg_gicp_t.transformation.numpy(), reg_gicp.transformation)
 
-      query_pcd_copy = copy.deepcopy(query_pcd)
+      # Show initial alignment 
+      if args.show_result:
+        query_pcd_copy = copy.deepcopy(query_pcd)
+        query_pcd_copy.transform(w2c_noisy)
+        show_alignment_from_view(query_pcd_copy, model_pcd, c2w, show_image=args.show_result)
 
-      query_pcd_copy.transform(w2c)
-
-      aligned_image = show_alignment_from_view(query_pcd_copy, model_pcd, c2w, show_image=args.show_result)
-
+      # Apply transformation
       if args.icp == "smallgicp":
         query_pcd.transform(small_GICP_T) 
 
-      elif args.icp == "open3d.t":
-        query_pcd.transform(reg_gicp.transformation.numpy())
+      elif args.icp == "open3d":
+        query_pcd.transform(reg_gicp.transformation)
 
+      elif args.icp == "open3d.t":
+        query_pcd.transform(reg_gicp_t.transformation.numpy())
+
+      # Display alignment and take image 
       aligned_image = show_alignment_from_view(query_pcd, model_pcd, c2w, show_image=args.show_result)
 
       save_image(aligned_image=aligned_image, cam_num=i)

@@ -16,6 +16,10 @@ from splat_viewer.gaussians.workspace import Workspace
 import small_gicp
 
 from splat_viewer.scripts.renderer_workspace import RenderingWorkspace
+import torch
+
+import copy 
+
 
 class ModelICP(RenderingWorkspace):
   def __init__(
@@ -53,7 +57,7 @@ class ModelICP(RenderingWorkspace):
   
   @property
   def model_pcd_t(self)->o3d.t.geometry.PointCloud:
-    return o3d.t.geometry.PointCloud.from_legacy(self._model_pcd)
+    return self._model_pcd_t
 
   @beartype
   def load_model_pcd(
@@ -62,6 +66,11 @@ class ModelICP(RenderingWorkspace):
   ):
     self._model_pcd = model_pcd
 
+  @beartype
+  def load_model_pcd_t(
+    self
+  ):
+    self._model_pcd_t = o3d.t.geometry.PointCloud.from_legacy(self.model_pcd, device=o3d.core.Device("CUDA:0"))
 
   @beartype
   def define_intrinsics(
@@ -116,44 +125,46 @@ class ModelICP(RenderingWorkspace):
     
     return pcd.scale(scale_factor, [0,0,0])
   
-
   @beartype
   def apply_tGICP(
       self,
       query_pcd: o3d.t.geometry.PointCloud,
       w2c: o3d.core.Tensor = o3d.core.Tensor.eye(4)
   ) -> o3d.t.pipelines.registration.RegistrationResult:
+      
+      # print(f"cuda available: {o3d.core.cuda.is_available()}")  # Should return True
+      # print(f"query dev: {query_pcd.device}") # returns CUDA:0
+      # print(f"model dev: {model_pcd_t_copy.device}") # returns CUDA:0
+      # print(f"init T dev: {w2c.device}") # returns CUDA:0
+      # print("Transform dtype:", w2c.dtype)
+
+      # print("Query PCD points:", len(query_pcd.point.positions)) # about 390k
+      # print("Query dtype:", query_pcd.point.positions.dtype)
+
+      # print("Model PCD points:", len(self.model_pcd_t.point.positions)) # about 1.2 mill
+      # print("Model dtype:", self.model_pcd_t.point.positions.dtype)
 
       start = perf_counter()
 
-      # estimate max_correspondence_distance
-      bbox = self.model_pcd_t.get_axis_aligned_bounding_box().get_extent()
-      threshold = 0.15 * float(bbox.max())  # 15% of largest cloud dimension
-
-      # estimate normals
-      query_pcd.estimate_normals(max_nn=40, radius=2.5 * query_pcd.compute_mean_distance())
-      self.model_pcd_t.estimate_normals(max_nn=40, radius=2.5 * self.model_pcd_t.compute_mean_distance())
-
-      # gicp
       criteria = o3d.t.pipelines.registration.ICPConvergenceCriteria(
-          max_iteration=30,
+          max_iteration=50,
           relative_fitness=1e-6,
           relative_rmse=1e-6
       )
 
       reg_gicp = o3d.t.pipelines.registration.icp(
-          query_pcd, self.model_pcd_t, threshold, w2c,
-          estimation_method=o3d.t.pipelines.registration.TransformationEstimationPointToPlane(),
-          criteria=criteria
+          source=query_pcd,
+          target=self.model_pcd_t,
+          init_source_to_target = w2c,
+          criteria=criteria,
+          voxel_size = 0.0075,
+          max_correspondence_distance=0.3
       )
-
       end = perf_counter()
       print(f"Elapsed Time: {end-start} seconds")
-
-      # Results
-      # print("Generalized ICP Transformation Matrix:\n", reg_gicp.transformation)
-      # print("Fitness Score (inlier ratio):", reg_gicp.fitness)  # Range [0, 1], higher is better
-      print("RMSE:", reg_gicp.inlier_rmse)  # Root Mean Square Error of inliers
+      print("RMSE:", reg_gicp.inlier_rmse)
+      # print("num_it:", reg_gicp.num_iterations)
+      # print("converged: ", reg_gicp.converged)
 
       return reg_gicp
 
@@ -164,12 +175,14 @@ class ModelICP(RenderingWorkspace):
     w2c:NDArray[np.float64]=np.eye(4)
   )->o3d.pipelines.registration.RegistrationResult:
 
-    print("Performing GPU-ICP")
+    print("Performing CPU o3e ICP")
     start = perf_counter()
 
     # estimate max_correspondence_distance
     bbox = self.model_pcd.get_axis_aligned_bounding_box().get_extent()
     threshold = 0.15 * np.max(bbox)  # 15% of largest cloud dimension
+
+    print(threshold)
 
     distances = query_pcd.compute_nearest_neighbor_distance()
     radius = 2.5 * np.mean(distances)
@@ -186,6 +199,10 @@ class ModelICP(RenderingWorkspace):
         relative_fitness=1e-6,
         relative_rmse=1e-6
     )
+
+    print("Query PCD points:", len(query_pcd.points))
+    print("Model PCD points:", len(self.model_pcd.points))
+
 
     reg_gicp = o3d.pipelines.registration.registration_generalized_icp(
         query_pcd, self.model_pcd, threshold, w2c,
