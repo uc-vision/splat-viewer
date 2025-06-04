@@ -42,7 +42,8 @@ class Settings:
   snapshot_tile: int = 1024
 
 
-  depth_scale: float = 1.0
+  depth_near: float = 0.2
+  depth_far: float = 2.0
 
 
   device : str = 'cuda:0'

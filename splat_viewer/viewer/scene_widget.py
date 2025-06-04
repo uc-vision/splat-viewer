@@ -217,10 +217,14 @@ class SceneWidget(QtWidgets.QWidget):
 
     elif event.key() == Qt.Key_O: 
       shift = event.modifiers() & Qt.ShiftModifier
-      self.update_setting(depth_scale = self.settings.depth_scale * (0.9 if shift else 1/0.9))
+      self.update_setting(depth_near = self.settings.depth_near * (0.9 if shift else 1/0.9))
       self.dirty = True
       return True
-    
+    elif event.key() == Qt.Key_P: 
+      shift = event.modifiers() & Qt.ShiftModifier
+      self.update_setting(depth_far = self.settings.depth_far * (0.9 if shift else 1/0.9))
+      self.dirty = True
+      return True
 
 
 
