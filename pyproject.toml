@@ -43,6 +43,7 @@ export-rgb-cloud = "splat_viewer.scripts.export_rgb_cloud:main"
 
 crop-foreground = "splat_viewer.scripts.crop_foreground:main"
 compare-clouds = "splat_viewer.scripts.compare_clouds:main"
+fuse-depths = "splat_viewer.scripts.depth_fusion:main"
 
 
 [tool.ruff]

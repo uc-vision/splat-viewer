@@ -30,12 +30,14 @@ class GaussianRenderer:
   @dataclass 
   class Config:
     tile_size : int = 16
-    antialias : bool = True
+    antialias : bool = False
     use_depth16 : bool = False
     pixel_stride : Tuple[int, int] = (2, 2)
     blur_cov: float = 0.3
 
   def __init__(self, **kwargs):
+
+    
     self.config = GaussianRenderer.Config(**kwargs)
 
   @beartype

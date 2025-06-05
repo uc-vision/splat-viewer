@@ -29,11 +29,12 @@ class RendererArgs:
 
 def renderer_from_args(args:RendererArgs):
     from splat_viewer.renderer.taichi_splatting import GaussianRenderer
+
     return GaussianRenderer(tile_size=args.tile_size, 
                                  antialias=args.antialias,
                                  use_depth16=args.depth16,
                                  pixel_stride=args.pixel_stride,
-                                 blur_cov=args.blur_cov) 
+                                 blur_cov=args.blur_cov if not args.antialias else 0.0) 
 
 def make_renderer_args(args):
 
