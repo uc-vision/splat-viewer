@@ -242,10 +242,11 @@ class SceneWidget(QtWidgets.QWidget):
     
     
     elif event.key() == Qt.Key_Space:
-      self.keypoints.append(self.camera.view_matrix)
-
-    if event.key() == Qt.Key_Space and event.modifiers() & Qt.ControlModifier:  
-      self.write_keypoints()
+    
+      if event.modifiers() & Qt.ControlModifier:  
+        self.write_keypoints()
+      else:
+        self.keypoints.append(self.camera.view_matrix)
 
     elif event.key() == Qt.Key_Return:
       if event.modifiers() & Qt.ShiftModifier:

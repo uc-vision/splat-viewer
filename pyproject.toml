@@ -48,6 +48,13 @@ fuse-depths = "splat_viewer.scripts.depth_fusion:main"
 
 [tool.ruff]
 indent-width = 2
+preview = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"
 
 [tool.pytest.ini_options]
 filterwarnings = [
