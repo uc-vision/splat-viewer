@@ -1,7 +1,7 @@
 [project]
-name = "splat-viewer"  
+name = "splat-annotate"  
 version = "0.21.0"  
-description = "A viewer for gaussian-splatting reconstructions"  
+description = "An instance annotation tool for gaussian-splatting reconstructions"  
 readme = "README.md" 
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
@@ -12,7 +12,6 @@ maintainers = [
 
 dependencies = [
   "beartype", 
-  "taichi-nightly>=1.8.0", 
   "taichi-splatting >= 0.21.2",
   "tqdm", 
   "tensordict",
@@ -25,25 +24,17 @@ dependencies = [
 
 ]
 
-[options]
-dependency_links = ["https://pypi.taichi.graphics/simple/"]
-
 [project.urls] 
-"Homepage" = "https://github.com/uc-vision/splat-viewer"
+"Homepage" = "https://github.com/uc-vision/splat-annotate"
 
 [build-system]
-requires = ["setuptools>=43.0.0", "wheel"]
-build-backend = "setuptools.build_meta"
+# Hatching
+requires = ["hatchling>=1.5.0"]
+build-backend = "hatchling.build"
 
 
 [project.scripts]  # Optional
-splat-viewer = "splat_viewer.scripts.splat_viewer:main"
-instance-editor = "splat_viewer.scripts.instance_editor:main"
-
-debug-tiles = "splat_viewer.scripts.debug_tiles:main"
-label-foreground = "splat_viewer.scripts.label_foreground:main"
-export-workspace = "splat_viewer.scripts.export_workspace:main"
-export-rgb-cloud = "splat_viewer.scripts.export_rgb_cloud:main"
+instance-editor = "splat_annotate.scripts.instance_editor:main"
 
 
 [tool.ruff]
