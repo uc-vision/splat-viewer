@@ -1,0 +1,48 @@
+[project]
+name = "splat-annotate"  
+version = "0.21.0"  
+description = "An instance annotation tool for gaussian-splatting reconstructions"  
+readme = "README.md" 
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+
+maintainers = [
+  {name = "Oliver Batchelor", email = "oliver.batchelor@canterbury.ac.nz" } 
+]
+
+dependencies = [
+  "beartype", 
+  "taichi-splatting >= 0.21.2",
+  "tqdm", 
+  "tensordict",
+  "plyfile",
+  "pyside6",
+  "natsort",
+  "opencv_python",
+  "pyrender",
+  "roma"
+]
+
+
+[project.urls] 
+"Homepage" = "https://github.com/uc-vision/splat-annotate"
+
+[build-system]
+# Hatching
+requires = ["hatchling>=1.5.0"]
+build-backend = "hatchling.build"
+
+[project.scripts]  # Optional
+splat-annotate = "splat_annotate.scripts.splat_annotate:main"
+
+
+[tool.ruff]
+indent-width = 2
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    # disable "UserWarning: The .grad attribute of a Tensor that is not a leaf Tensor"
+    "ignore::UserWarning"  
+]
+
+
